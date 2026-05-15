@@ -1,9 +1,12 @@
--- Enable RLS on all tables
+-- Enable RLS on all application tables.
+-- Prisma connects via a direct service-role connection and bypasses RLS,
+-- so these policies are defense-in-depth — they block any direct anon/user-key
+-- access via the Supabase client that doesn't go through the app.
 ALTER TABLE public.rounds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.round_holes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clubs ENABLE ROW LEVEL SECURITY;
 
--- rounds: own rows only
+-- rounds: owner only
 CREATE POLICY "rounds_select" ON public.rounds FOR SELECT USING (auth.uid()::text = user_id);
 CREATE POLICY "rounds_insert" ON public.rounds FOR INSERT WITH CHECK (auth.uid()::text = user_id);
 CREATE POLICY "rounds_update" ON public.rounds FOR UPDATE USING (auth.uid()::text = user_id);
@@ -23,7 +26,7 @@ CREATE POLICY "round_holes_delete" ON public.round_holes FOR DELETE USING (
   EXISTS (SELECT 1 FROM public.rounds WHERE id = round_id AND auth.uid()::text = user_id)
 );
 
--- clubs: own rows only
+-- clubs: owner only
 CREATE POLICY "clubs_select" ON public.clubs FOR SELECT USING (auth.uid()::text = user_id);
 CREATE POLICY "clubs_insert" ON public.clubs FOR INSERT WITH CHECK (auth.uid()::text = user_id);
 CREATE POLICY "clubs_update" ON public.clubs FOR UPDATE USING (auth.uid()::text = user_id);

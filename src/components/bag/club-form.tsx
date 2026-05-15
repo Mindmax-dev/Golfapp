@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { CLUB_TYPEN } from "@/types/club";
-import type { Club } from "@prisma/client";
+import type { Club } from "@/generated/prisma/client";
 
 type FormState = { error: string | Record<string, string[]> } | null;
 

@@ -1,4 +1,4 @@
-import type { Round, RoundHole } from "@prisma/client";
+import type { Round, RoundHole } from "@/generated/prisma/client";
 
 export type RoundWithHoles = Round & {
   holes: RoundHole[];

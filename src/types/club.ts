@@ -1,4 +1,4 @@
-import type { Club } from "@prisma/client";
+import type { Club } from "@/generated/prisma/client";
 
 export type { Club };
 
