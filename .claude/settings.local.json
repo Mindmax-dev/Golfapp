@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "Bash(supabase --version)",
+      "Bash(docker --version)",
+      "Bash(npx supabase:*)",
+      "WebSearch",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:www.prisma.io)",
+      "Bash(printf '\\\\n')",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --app --src-dir --import-alias \"@/*\" --no-eslint)",
+      "Bash(npm install:*)",
+      "Bash(supabase init:*)",
+      "Bash(npx @supabase/cli --version)",
+      "Bash(docker info:*)",
+      "Bash(docker context:*)",
+      "Bash(DOCKER_HOST=npipe:////./pipe/docker_engine docker ps)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)"
+    ]
+  }
+}

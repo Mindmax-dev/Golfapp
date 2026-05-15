@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Round {
+  id        String      @id @default(cuid())
+  userId    String      @map("user_id")
+  datum     DateTime    @db.Date
+  turnier   Boolean     @default(false)
+  notizen   String?     @db.Text
+  links     String[]
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  holes RoundHole[]
+
+  @@map("rounds")
+}
+
+model RoundHole {
+  id         String @id @default(cuid())
+  roundId    String @map("round_id")
+  holeNumber Int    @map("hole_number")
+  strokes    Int
+
+  round Round @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, holeNumber])
+  @@map("round_holes")
+}
+
+model Club {
+  id                   String   @id @default(cuid())
+  userId               String   @map("user_id")
+  typ                  String
+  hersteller           String
+  modell               String
+  loft                 Decimal? @db.Decimal(4, 1)
+  durchschnittsDistanz Int?     @map("durchschnitts_distanz")
+  notizen              String?  @db.Text
+  sortOrder            Int      @default(0) @map("sort_order")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("clubs")
+}
