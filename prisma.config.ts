@@ -1,4 +1,9 @@
+import { config } from "dotenv";
 import { defineConfig } from "prisma/config";
+
+// Prisma CLI only auto-loads .env — mirror Next.js behaviour by also loading .env.local.
+config({ path: ".env" });
+config({ path: ".env.local", override: true });
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

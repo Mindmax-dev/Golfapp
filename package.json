@@ -11,7 +11,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "db:reset": "supabase db reset && prisma migrate deploy"
+    "db:reset": "npx supabase db reset && npx prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
@@ -32,6 +32,7 @@
     "@types/pg": "^8.11.10",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.2",
+    "dotenv": "^17.4.2",
     "postcss": "^8.5.3",
     "prisma": "^7.8.0",
     "tailwindcss": "^4.1.6",
