@@ -169,13 +169,19 @@ supabase/migrations/
 | `npm run db:reset` | `supabase db reset` then `prisma migrate deploy` — correct order |
 
 **Schema change workflow:**
-```bash
+
+> ⚠️ `npm run db:migrate` (`prisma migrate dev`) **does not work** here — it uses a shadow DB without Supabase's `auth` schema, so the RLS migration fails. Use the `migrate diff` workflow documented in [DEPLOYMENT.md](./DEPLOYMENT.md#3-schema-change-workflow).
+
+Short version:
+```powershell
 # 1. Edit prisma/schema.prisma
-# 2. Generate migration + apply:
-npm run db:migrate -- --name add_weather_column
-# → writes prisma/migrations/<timestamp>/migration.sql
-# → applies to local DB
-# → regenerates src/generated/prisma/
+# 2. Generate SQL (no shadow DB)
+npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
+# 3. Save output to prisma/migrations/<timestamp>_<name>/migration.sql
+# 4. Apply locally + regenerate client
+npm run db:deploy
+npx prisma generate
+# 5. Commit + push — Vercel runs `prisma migrate deploy` during build
 ```
 
 **Seeding** — requires a Supabase user to already exist:
@@ -207,6 +213,16 @@ npm run dev   # http://localhost:3000
 ```
 
 > Docker Desktop must be running. On Windows, run `npx supabase start` from PowerShell, not Git Bash.
+
+## Deployment
+
+Production runs on **Vercel** with the database on **Supabase Cloud**. The `package.json` build script is `prisma migrate deploy && next build`, so migrations auto-apply on every deploy.
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for:
+- Vercel project setup (env vars, Supabase Auth URLs, custom domain)
+- Schema change workflow (the shadow-DB-safe one)
+- Seeding production data
+- Troubleshooting
 
 ## Updating This File
 
