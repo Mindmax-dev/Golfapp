@@ -4,7 +4,13 @@ import { PrismaPg } from "@prisma/adapter-pg";
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 function createPrismaClient() {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! }, { schema: "golf" });
+  const adapter = new PrismaPg(
+    {
+      connectionString: process.env.DATABASE_URL!,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    },
+    { schema: "golf" }
+  );
   return new PrismaClient({ adapter });
 }
 
