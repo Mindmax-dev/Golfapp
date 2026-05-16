@@ -137,9 +137,11 @@ Client Component → Server Action (src/actions/*.ts) → Zod validate → prism
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=       # http://127.0.0.1:54321 locally
 NEXT_PUBLIC_SUPABASE_ANON_KEY=  # from `npx supabase start` output
-DATABASE_URL=                   # postgres://... with ?pgbouncer=true for pooling
-DIRECT_URL=                     # postgres://... direct connection (for migrations)
+DATABASE_URL=                   # postgres://...?schema=golf  (add &pgbouncer=true in production)
+DIRECT_URL=                     # postgres://...?schema=golf  direct connection (for migrations)
 ```
+
+All tables live in the `golf` schema — both locally (Docker) and in Supabase Cloud. Allows sharing a Supabase project with other apps that use `public`.
 
 ## Migration Ownership
 

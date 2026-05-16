@@ -1,19 +1,28 @@
+import { config } from "dotenv";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-if (!process.env.SEED_USER_ID) {
+// Prisma CLI only loads .env — load .env.local manually so SEED_USER_ID and DIRECT_URL are available.
+config({ path: ".env.local" });
+config({ path: ".env" });
+
+// Accept UUID from env var (preferred) or as first CLI argument (Windows-friendly fallback).
+const userId: string = process.env.SEED_USER_ID ?? process.argv[2] ?? "";
+
+if (!userId) {
   console.error(
     "SEED_USER_ID is not set.\n" +
-    "Get your user ID from Supabase Studio → Authentication → Users,\n" +
-    "then run:  SEED_USER_ID=<uuid> npx prisma db seed"
+    "Get your user ID from Supabase Studio → Authentication → Users, then either:\n" +
+    "  Set SEED_USER_ID in .env.local  (recommended)\n" +
+    "  Or pass it as an argument: npm run db:seed -- <uuid>"
   );
   process.exit(1);
 }
-const userId: string = process.env.SEED_USER_ID;
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? "",
-});
+const adapter = new PrismaPg(
+  { connectionString: process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? "" },
+  { schema: "golf" },
+);
 const prisma = new PrismaClient({ adapter });
 
 // ---------------------------------------------------------------------------
