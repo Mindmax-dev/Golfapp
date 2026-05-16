@@ -26,7 +26,8 @@
       "mcp__supabase__list_tables",
       "mcp__supabase__get_project_url",
       "Bash(nslookup aws-0-eu-central-1.pooler.supabase.com)",
-      "mcp__supabase__execute_sql"
+      "mcp__supabase__execute_sql",
+      "Bash(npx prisma *)"
     ]
   }
 }

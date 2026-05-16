@@ -44,6 +44,7 @@ model Club {
   durchschnittsDistanz Int?     @map("durchschnitts_distanz")
   notizen              String?  @db.Text
   sortOrder            Int      @default(0) @map("sort_order")
+  farbe                String?
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
