@@ -5,6 +5,7 @@ import { formatDatum, signDisplay } from "@/lib/utils";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PerformanceTrendChart } from "@/components/charts/performance-trend-chart";
+import { RollingAverageChart } from "@/components/charts/rolling-average-chart";
 import { HoleAveragesChart } from "@/components/charts/hole-averages-chart";
 import { formatDatumKurz } from "@/lib/utils";
 
@@ -18,6 +19,12 @@ export default async function HomePage() {
     uberPar: r.uberPar,
     stableford: r.stableford,
     totalStrokes: r.totalStrokes,
+  }));
+
+  const rollingData = stats.rollingData.map((r) => ({
+    datum: formatDatumKurz(r.datum),
+    rolling5Avg: r.rolling5Avg,
+    rekord: r.rekord,
   }));
 
   return (
@@ -97,11 +104,23 @@ export default async function HomePage() {
         </Card>
       )}
 
+      {/* Rolling Average + Rekord */}
+      {rollingData.length > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ø Über Par (letzte 5 Runden) & Rekord</CardTitle>
+          </CardHeader>
+          <Suspense fallback={<div className="h-64 animate-pulse bg-[var(--color-muted)] rounded" />}>
+            <RollingAverageChart data={rollingData} />
+          </Suspense>
+        </Card>
+      )}
+
       {/* Hole Averages */}
       {stats.totalRunden > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Loch-Durchschnitt (alle Runden)</CardTitle>
+            <CardTitle>Loch-Durchschnitt</CardTitle>
           </CardHeader>
           <Suspense fallback={<div className="h-64 animate-pulse bg-[var(--color-muted)] rounded" />}>
             <HoleAveragesChart data={stats.holeAverages} />

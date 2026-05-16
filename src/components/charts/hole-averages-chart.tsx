@@ -7,30 +7,61 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
-  ReferenceLine,
-  Cell,
 } from "recharts";
+
+interface TooltipPayloadEntry {
+  name: string;
+  value: number;
+  color: string;
+  payload: { fullName: string; par: number };
+}
+
+function HoleTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayloadEntry[] }) {
+  if (!active || !payload?.length) return null;
+  const { fullName, par } = payload[0].payload;
+  return (
+    <div style={{
+      backgroundColor: "oklch(0.18 0 0)",
+      border: "1px solid oklch(0.26 0 0)",
+      borderRadius: "0.5rem",
+      padding: "8px 12px",
+      fontSize: "12px",
+    }}>
+      <p style={{ color: "oklch(0.985 0 0)", marginBottom: "6px", fontWeight: 500 }}>{fullName}</p>
+      {payload.map((entry) => {
+        const diff = Math.round((entry.value - par) * 100) / 100;
+        return (
+          <p key={entry.name} style={{ color: entry.color, margin: "2px 0" }}>
+            {entry.name}: {entry.value} ({diff >= 0 ? "+" : ""}{diff} vs Par {par})
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 interface HoleAverage {
   holeNumber: number;
   name: string;
   par: number;
   average: number;
+  averageLast5: number;
 }
 
 export function HoleAveragesChart({ data }: { data: HoleAverage[] }) {
   const chartData = data.map((h) => ({
     name: `L${h.holeNumber}`,
     fullName: h.name,
-    average: h.average,
     par: h.par,
-    diff: Math.round((h.average - h.par) * 100) / 100,
+    average: h.average,
+    averageLast5: h.averageLast5,
   }));
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+      <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }} barCategoryGap="20%" barGap={3}>
         <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.26 0 0)" vertical={false} />
         <XAxis
           dataKey="name"
@@ -45,39 +76,15 @@ export function HoleAveragesChart({ data }: { data: HoleAverage[] }) {
           axisLine={false}
           domain={["auto", "auto"]}
         />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: "oklch(0.18 0 0)",
-            border: "1px solid oklch(0.26 0 0)",
-            borderRadius: "0.5rem",
-            fontSize: "12px",
-          }}
-          labelStyle={{ color: "oklch(0.985 0 0)", marginBottom: "4px" }}
-          formatter={(value: number, name: string, props) => {
-            if (name === "Durchschnitt") {
-              const diff = props.payload.diff;
-              return [
-                `${value} (${diff >= 0 ? "+" : ""}${diff} vs Par ${props.payload.par})`,
-                props.payload.fullName,
-              ];
-            }
-            return [value, name];
-          }}
+        <Tooltip content={<HoleTooltip />} />
+        <Legend
+          wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }}
+          formatter={(value) => (
+            <span style={{ color: "oklch(0.75 0 0)" }}>{value}</span>
+          )}
         />
-        <Bar dataKey="average" name="Durchschnitt" radius={[4, 4, 0, 0]}>
-          {chartData.map((entry, index) => (
-            <Cell
-              key={index}
-              fill={
-                entry.diff <= 0
-                  ? "oklch(0.72 0.17 142)"
-                  : entry.diff <= 1
-                  ? "oklch(0.75 0.15 75)"
-                  : "oklch(0.6 0.22 27)"
-              }
-            />
-          ))}
-        </Bar>
+        <Bar dataKey="average" name="Alle Runden" fill="oklch(0.72 0.17 142)" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="averageLast5" name="Letzte 5" fill="oklch(0.75 0.18 50)" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

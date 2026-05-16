@@ -48,22 +48,37 @@ export function getRekordrunde<T extends { totalStrokes: number }>(
   );
 }
 
+export function getRollingStats(
+  rounds: Array<{ datum: Date; uberPar: number }>
+): Array<{ datum: Date; rolling5Avg: number; rekord: number }> {
+  const chronological = [...rounds].reverse();
+  return chronological.map((r, i) => {
+    const fenster = chronological.slice(Math.max(0, i - 4), i + 1);
+    const rolling5Avg =
+      Math.round((fenster.reduce((s, w) => s + w.uberPar, 0) / fenster.length) * 10) / 10;
+    const rekord = Math.min(...chronological.slice(0, i + 1).map((w) => w.uberPar));
+    return { datum: r.datum, rolling5Avg, rekord };
+  });
+}
+
+function holeAvg(rounds: Array<{ holes: HoleResult[] }>, holeNumber: number, fallback: number): number {
+  const strokes = rounds.flatMap((r) =>
+    r.holes.filter((h) => h.holeNumber === holeNumber).map((h) => h.strokes)
+  );
+  return strokes.length > 0
+    ? Math.round((strokes.reduce((s, n) => s + n, 0) / strokes.length) * 100) / 100
+    : fallback;
+}
+
 export function getHoleAverages(
   rounds: Array<{ holes: HoleResult[] }>
-): Array<{ holeNumber: number; name: string; par: number; average: number }> {
-  return HOLES.map((hole) => {
-    const allStrokes = rounds.flatMap((r) =>
-      r.holes.filter((h) => h.holeNumber === hole.number).map((h) => h.strokes)
-    );
-    const average =
-      allStrokes.length > 0
-        ? allStrokes.reduce((s, n) => s + n, 0) / allStrokes.length
-        : hole.par;
-    return {
-      holeNumber: hole.number,
-      name: hole.name,
-      par: hole.par,
-      average: Math.round(average * 100) / 100,
-    };
-  });
+): Array<{ holeNumber: number; name: string; par: number; average: number; averageLast5: number }> {
+  const last5 = rounds.slice(0, 5);
+  return HOLES.map((hole) => ({
+    holeNumber: hole.number,
+    name: hole.name,
+    par: hole.par,
+    average: holeAvg(rounds, hole.number, hole.par),
+    averageLast5: holeAvg(last5, hole.number, hole.par),
+  }));
 }

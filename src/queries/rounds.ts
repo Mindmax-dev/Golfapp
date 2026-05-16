@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { calculateRoundStats, getDurchschnittUberParLetzter5, getRekordrunde, getHoleAverages } from "@/lib/calculations";
+import { calculateRoundStats, getDurchschnittUberParLetzter5, getRekordrunde, getHoleAverages, getRollingStats } from "@/lib/calculations";
 import type { RoundWithStats } from "@/types/round";
 
 export async function getAllRoundsWithStats(userId?: string): Promise<RoundWithStats[]> {
@@ -35,6 +35,7 @@ export async function getPublicStats() {
     stableford: r.stablefordPunkte,
     totalStrokes: r.totalStrokes,
   }));
+  const rollingData = getRollingStats(rounds);
 
   return {
     totalRunden: rounds.length,
@@ -42,6 +43,7 @@ export async function getPublicStats() {
     durchschnittUberPar,
     holeAverages,
     trendData,
+    rollingData,
     letzteRunden: rounds.slice(0, 10),
   };
 }
