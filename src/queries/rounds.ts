@@ -46,11 +46,18 @@ export async function getPublicStats() {
   }));
   const rollingData = getRollingStats(rounds);
 
-  // Single-user app: any profile carries the official HI shown publicly.
-  const anyProfile = await prisma.userProfile.findFirst();
-  const officialHandicapIndex = anyProfile?.officialHandicapIndex
-    ? Number(anyProfile.officialHandicapIndex)
-    : null;
+  // Single-user app: latest dated entry is the source of truth; fall back to the
+  // legacy profile column for users who haven't migrated to entries yet.
+  const [latestEntry, anyProfile] = await Promise.all([
+    prisma.officialHandicapEntry.findFirst({
+      orderBy: [{ datum: "desc" }, { createdAt: "desc" }],
+      select: { handicapIndex: true },
+    }),
+    prisma.userProfile.findFirst(),
+  ]);
+  const officialHandicapIndex =
+    (latestEntry?.handicapIndex ? Number(latestEntry.handicapIndex) : null) ??
+    (anyProfile?.officialHandicapIndex ? Number(anyProfile.officialHandicapIndex) : null);
 
   return {
     totalRunden: rounds.length,
