@@ -8,9 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { CLUB_TYPEN } from "@/types/club";
-import type { Club } from "@/generated/prisma/client";
 
 type FormState = { error: string | Record<string, string[]> } | null;
+
+export type ClubFormDefaults = {
+  typ: string;
+  club: string;
+  modell: string;
+  loft: number | null;
+  durchschnittsDistanz: number | null;
+  notizen: string | null;
+};
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -23,7 +31,7 @@ function SubmitButton() {
 
 interface ClubFormProps {
   action: (prevState: FormState, formData: FormData) => Promise<FormState>;
-  defaultValues?: Club;
+  defaultValues?: ClubFormDefaults;
 }
 
 export function ClubForm({ action, defaultValues }: ClubFormProps) {
@@ -47,18 +55,18 @@ export function ClubForm({ action, defaultValues }: ClubFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <Input
-          id="hersteller"
-          name="hersteller"
-          label="Hersteller"
-          placeholder="Titleist, Callaway..."
-          defaultValue={defaultValues?.hersteller ?? ""}
+          id="club"
+          name="club"
+          label="Club"
+          placeholder="7, PW, Driver..."
+          defaultValue={defaultValues?.club ?? ""}
           required
         />
         <Input
           id="modell"
           name="modell"
           label="Modell"
-          placeholder="T200, Apex..."
+          placeholder="Ping i10, Callaway Apex..."
           defaultValue={defaultValues?.modell ?? ""}
           required
         />
@@ -74,7 +82,7 @@ export function ClubForm({ action, defaultValues }: ClubFormProps) {
           step="0.5"
           min="0"
           max="70"
-          defaultValue={defaultValues?.loft ? String(defaultValues.loft) : ""}
+          defaultValue={defaultValues?.loft != null ? String(defaultValues.loft) : ""}
         />
         <Input
           id="durchschnittsDistanz"
@@ -87,15 +95,6 @@ export function ClubForm({ action, defaultValues }: ClubFormProps) {
           defaultValue={defaultValues?.durchschnittsDistanz ?? ""}
         />
       </div>
-
-      <Input
-        id="sortOrder"
-        name="sortOrder"
-        type="number"
-        label="Sortierung"
-        placeholder="0"
-        defaultValue={defaultValues?.sortOrder ?? 0}
-      />
 
       <Textarea
         id="notizen"

@@ -27,12 +27,22 @@ export default async function EditClubPage({
             Club bearbeiten
           </h1>
           <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-            {club.hersteller} {club.modell}
+            {club.club} — {club.modell}
           </p>
         </div>
         <DeleteClubButton id={id} />
       </div>
-      <ClubForm action={boundAction} defaultValues={club} />
+      <ClubForm
+        action={boundAction}
+        defaultValues={{
+          typ: club.typ,
+          club: club.club,
+          modell: club.modell,
+          loft: club.loft != null ? Number(club.loft) : null,
+          durchschnittsDistanz: club.durchschnittsDistanz,
+          notizen: club.notizen,
+        }}
+      />
     </div>
   );
 }

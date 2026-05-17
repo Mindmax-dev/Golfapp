@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DeleteClubButton } from "@/components/bag/delete-club-button";
+import { ReorderButtons } from "@/components/bag/reorder-buttons";
 import { CLUB_TYPEN } from "@/types/club";
 
 export const metadata: Metadata = { title: "Bag" };
@@ -47,24 +48,36 @@ export default async function AdminBagPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-card-border)]">
+                  <th className="py-3 pr-2 w-10"></th>
                   <th className="text-left py-3 pr-4 text-[var(--color-muted-foreground)] font-medium">Typ</th>
                   <th className="text-left py-3 pr-4 text-[var(--color-muted-foreground)] font-medium">Club</th>
+                  <th className="text-left py-3 pr-4 text-[var(--color-muted-foreground)] font-medium">Modell</th>
                   <th className="text-right py-3 pr-4 text-[var(--color-muted-foreground)] font-medium">Loft</th>
                   <th className="text-right py-3 pr-4 text-[var(--color-muted-foreground)] font-medium">Ø Distanz</th>
                   <th className="text-right py-3 text-[var(--color-muted-foreground)] font-medium">Aktionen</th>
                 </tr>
               </thead>
               <tbody>
-                {clubs.map((club) => (
+                {clubs.map((club, index) => (
                   <tr
                     key={club.id}
                     className="border-b border-[var(--color-card-border)]/50 hover:bg-[var(--color-muted)]/30 transition-colors"
                   >
+                    <td className="py-2 pr-2">
+                      <ReorderButtons
+                        id={club.id}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < clubs.length - 1}
+                      />
+                    </td>
                     <td className="py-3 pr-4">
                       <Badge variant="default">{typLabel(club.typ)}</Badge>
                     </td>
+                    <td className="py-3 pr-4 font-medium text-[var(--color-foreground)]">
+                      {club.club}
+                    </td>
                     <td className="py-3 pr-4 text-[var(--color-foreground)]">
-                      {club.hersteller} {club.modell}
+                      {club.modell}
                       {club.notizen && (
                         <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5 truncate max-w-48">
                           {club.notizen}

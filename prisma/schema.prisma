@@ -51,7 +51,7 @@ model Club {
   id                   String   @id @default(cuid())
   userId               String   @map("user_id")
   typ                  String
-  hersteller           String
+  club                 String
   modell               String
   loft                 Decimal? @db.Decimal(4, 1)
   durchschnittsDistanz Int?     @map("durchschnitts_distanz")

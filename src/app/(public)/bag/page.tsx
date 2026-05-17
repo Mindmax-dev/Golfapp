@@ -71,7 +71,7 @@ export default async function BagPage() {
               {groups.eisen.map((c) => (
                 <ClubRow
                   key={c.id}
-                  label={`${c.hersteller} ${c.modell}`}
+                  label={`${c.club} — ${c.modell}`}
                   loft={c.loft ? Number(c.loft) : null}
                   distanz={c.durchschnittsDistanz}
                   notizen={c.notizen}
@@ -99,7 +99,7 @@ export default async function BagPage() {
               {groups.wedge.map((c) => (
                 <ClubRow
                   key={c.id}
-                  label={`${c.hersteller} ${c.modell}`}
+                  label={`${c.club} — ${c.modell}`}
                   loft={c.loft ? Number(c.loft) : null}
                   distanz={c.durchschnittsDistanz}
                   notizen={c.notizen}
@@ -119,7 +119,7 @@ export default async function BagPage() {
             {groups.putter.map((c) => (
               <div key={c.id}>
                 <p className="font-medium text-[var(--color-foreground)]">
-                  {c.hersteller} {c.modell}
+                  {c.club} — {c.modell}
                 </p>
                 {c.notizen && (
                   <p className="text-sm text-[var(--color-muted-foreground)]">{c.notizen}</p>
@@ -147,7 +147,7 @@ export default async function BagPage() {
               {[...groups.holz, ...groups.hybrid].map((c) => (
                 <ClubRow
                   key={c.id}
-                  label={`${c.hersteller} ${c.modell}`}
+                  label={`${c.club} — ${c.modell}`}
                   loft={c.loft ? Number(c.loft) : null}
                   distanz={c.durchschnittsDistanz}
                   notizen={c.notizen}

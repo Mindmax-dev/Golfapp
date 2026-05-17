@@ -105,12 +105,12 @@ model Club {
   id                  String   @id @default(cuid())
   userId              String
   typ                 ClubTyp  // eisen | wedge | putter | holz | hybrid
-  hersteller          String
-  modell              String
+  club                String   // Bezeichnung: "7", "PW", "Driver", ...
+  modell              String   // Modellname inkl. Hersteller: "Ping i10"
   loft                Decimal?
   durchschnittsDistanz Int?
   notizen             String?
-  sortOrder           Int      @default(0)
+  sortOrder           Int      @default(0) // Reihenfolge via Up/Down auf /admin/bag
 }
 
 model UserProfile {

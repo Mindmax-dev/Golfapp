@@ -29,20 +29,20 @@ const prisma = new PrismaClient({ adapter });
 // Clubs — a realistic beginner/intermediate 9-hole bag
 // ---------------------------------------------------------------------------
 const clubs = [
-  { typ: "holz",   hersteller: "TaylorMade", modell: "Stealth 2 Driver",    loft: 10.5, durchschnittsDistanz: 210, sortOrder: 1 },
-  { typ: "holz",   hersteller: "TaylorMade", modell: "Stealth 2 3-Holz",    loft: 15.0, durchschnittsDistanz: 185, sortOrder: 2 },
-  { typ: "hybrid", hersteller: "Callaway",   modell: "Apex Hybrid 4",        loft: 22.0, durchschnittsDistanz: 165, sortOrder: 3 },
-  { typ: "eisen",  hersteller: "Callaway",   modell: "Apex 5-Eisen",         loft: 27.0, durchschnittsDistanz: 155, sortOrder: 4 },
-  { typ: "eisen",  hersteller: "Callaway",   modell: "Apex 6-Eisen",         loft: 30.0, durchschnittsDistanz: 145, sortOrder: 5 },
-  { typ: "eisen",  hersteller: "Callaway",   modell: "Apex 7-Eisen",         loft: 34.0, durchschnittsDistanz: 135, sortOrder: 6 },
-  { typ: "eisen",  hersteller: "Callaway",   modell: "Apex 8-Eisen",         loft: 38.0, durchschnittsDistanz: 125, sortOrder: 7 },
-  { typ: "eisen",  hersteller: "Callaway",   modell: "Apex 9-Eisen",         loft: 42.0, durchschnittsDistanz: 115, sortOrder: 8 },
-  { typ: "wedge",  hersteller: "Cleveland",  modell: "RTX 6 Pitching Wedge", loft: 46.0, durchschnittsDistanz: 100, sortOrder: 9 },
-  { typ: "wedge",  hersteller: "Cleveland",  modell: "RTX 6 Sand Wedge",     loft: 56.0, durchschnittsDistanz: 75,  sortOrder: 10 },
-  { typ: "putter", hersteller: "Odyssey",    modell: "White Hot OG #7",      loft: null,  durchschnittsDistanz: null, sortOrder: 11 },
+  { typ: "holz",   club: "Driver", modell: "TaylorMade Stealth 2",   loft: 10.5, durchschnittsDistanz: 210, sortOrder: 1 },
+  { typ: "holz",   club: "3",      modell: "TaylorMade Stealth 2",   loft: 15.0, durchschnittsDistanz: 185, sortOrder: 2 },
+  { typ: "hybrid", club: "4",      modell: "Callaway Apex Hybrid",   loft: 22.0, durchschnittsDistanz: 165, sortOrder: 3 },
+  { typ: "eisen",  club: "5",      modell: "Callaway Apex",          loft: 27.0, durchschnittsDistanz: 155, sortOrder: 4 },
+  { typ: "eisen",  club: "6",      modell: "Callaway Apex",          loft: 30.0, durchschnittsDistanz: 145, sortOrder: 5 },
+  { typ: "eisen",  club: "7",      modell: "Callaway Apex",          loft: 34.0, durchschnittsDistanz: 135, sortOrder: 6 },
+  { typ: "eisen",  club: "8",      modell: "Callaway Apex",          loft: 38.0, durchschnittsDistanz: 125, sortOrder: 7 },
+  { typ: "eisen",  club: "9",      modell: "Callaway Apex",          loft: 42.0, durchschnittsDistanz: 115, sortOrder: 8 },
+  { typ: "wedge",  club: "PW",     modell: "Cleveland RTX 6",        loft: 46.0, durchschnittsDistanz: 100, sortOrder: 9 },
+  { typ: "wedge",  club: "SW",     modell: "Cleveland RTX 6",        loft: 56.0, durchschnittsDistanz: 75,  sortOrder: 10 },
+  { typ: "putter", club: "Putter", modell: "Odyssey White Hot OG #7", loft: null, durchschnittsDistanz: null, sortOrder: 11 },
 ] satisfies Array<{
   typ: string;
-  hersteller: string;
+  club: string;
   modell: string;
   loft: number | null;
   durchschnittsDistanz: number | null;

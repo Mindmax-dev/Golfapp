@@ -4,7 +4,7 @@ export async function getAllClubs(userId?: string) {
   const where = userId ? { userId } : {};
   return prisma.club.findMany({
     where,
-    orderBy: [{ typ: "asc" }, { sortOrder: "asc" }],
+    orderBy: { sortOrder: "asc" },
   });
 }
 
