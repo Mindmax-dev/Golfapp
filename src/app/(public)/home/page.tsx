@@ -3,10 +3,9 @@ import { Suspense } from "react";
 import { getPublicStats } from "@/queries/rounds";
 import { formatDatum, signDisplay } from "@/lib/utils";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { PerformanceTrendChart } from "@/components/charts/performance-trend-chart";
 import { RollingAverageChart } from "@/components/charts/rolling-average-chart";
 import { HoleAveragesChart } from "@/components/charts/hole-averages-chart";
+import { RecentRoundsTable } from "@/components/rounds/recent-rounds-table";
 import { formatDatumKurz } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Statistiken" };
@@ -14,17 +13,21 @@ export const metadata: Metadata = { title: "Statistiken" };
 export default async function HomePage() {
   const stats = await getPublicStats();
 
-  const trendData = stats.trendData.map((r) => ({
-    datum: formatDatumKurz(r.datum),
-    uberPar: r.uberPar,
-    stableford: r.stableford,
-    totalStrokes: r.totalStrokes,
-  }));
-
   const rollingData = stats.rollingData.map((r) => ({
     datum: formatDatumKurz(r.datum),
     rolling5Avg: r.rolling5Avg,
     rekord: r.rekord,
+  }));
+
+  const letzteRundenRows = stats.letzteRunden.map((r) => ({
+    id: r.id,
+    datum: formatDatum(r.datum),
+    totalStrokes: r.totalStrokes,
+    uberPar: r.uberPar,
+    stablefordPunkte: r.stablefordPunkte,
+    turnier: r.turnier,
+    links: r.links,
+    holes: r.holes.map((h) => ({ holeNumber: h.holeNumber, strokes: h.strokes })),
   }));
 
   return (
@@ -92,25 +95,13 @@ export default async function HomePage() {
         </Card>
       </div>
 
-      {/* Performance Trend */}
-      {trendData.length > 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance-Trend</CardTitle>
-          </CardHeader>
-          <Suspense fallback={<div className="h-64 animate-pulse bg-[var(--color-muted)] rounded" />}>
-            <PerformanceTrendChart data={trendData} />
-          </Suspense>
-        </Card>
-      )}
-
-      {/* Rolling Average + Rekord */}
+      {/* Rolling Average + Rekord + Trend */}
       {rollingData.length > 1 && (
         <Card>
           <CardHeader>
             <CardTitle>Ø Über Par (letzte 5 Runden) & Rekord</CardTitle>
           </CardHeader>
-          <Suspense fallback={<div className="h-64 animate-pulse bg-[var(--color-muted)] rounded" />}>
+          <Suspense fallback={<div className="h-96 animate-pulse bg-[var(--color-muted)] rounded" />}>
             <RollingAverageChart data={rollingData} />
           </Suspense>
         </Card>
@@ -134,46 +125,7 @@ export default async function HomePage() {
           <CardHeader>
             <CardTitle>Letzte Runden</CardTitle>
           </CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[var(--color-card-border)]">
-                  <th className="text-left py-2 pr-4 text-[var(--color-muted-foreground)] font-medium">Datum</th>
-                  <th className="text-right py-2 pr-4 text-[var(--color-muted-foreground)] font-medium">Schläge</th>
-                  <th className="text-right py-2 pr-4 text-[var(--color-muted-foreground)] font-medium">Über Par</th>
-                  <th className="text-right py-2 pr-4 text-[var(--color-muted-foreground)] font-medium">Stableford</th>
-                  <th className="text-left py-2 text-[var(--color-muted-foreground)] font-medium">Typ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.letzteRunden.map((runde) => (
-                  <tr key={runde.id} className="border-b border-[var(--color-card-border)]/50">
-                    <td className="py-2.5 pr-4 text-[var(--color-foreground)]">
-                      {formatDatum(runde.datum)}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right font-mono text-[var(--color-foreground)]">
-                      {runde.totalStrokes}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right font-mono">
-                      <span className={runde.uberPar <= 0 ? "text-[var(--color-primary)]" : "text-[var(--color-muted-foreground)]"}>
-                        {signDisplay(runde.uberPar)}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-4 text-right font-mono text-[var(--color-foreground)]">
-                      {runde.stablefordPunkte}
-                    </td>
-                    <td className="py-2.5">
-                      {runde.turnier ? (
-                        <Badge variant="warning">Turnier</Badge>
-                      ) : (
-                        <Badge variant="default">Übungsrunde</Badge>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <RecentRoundsTable runden={letzteRundenRows} />
         </Card>
       )}
 
