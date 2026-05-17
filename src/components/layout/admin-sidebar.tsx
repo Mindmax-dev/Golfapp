@@ -8,6 +8,7 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: "📊", exact: true },
   { href: "/admin/runden", label: "Runden", icon: "🏌️" },
   { href: "/admin/bag", label: "Bag", icon: "🎒" },
+  { href: "/admin/profil", label: "Profil", icon: "👤" },
 ];
 
 export function AdminSidebar() {

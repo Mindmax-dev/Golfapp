@@ -1,20 +1,35 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicStats } from "@/queries/rounds";
+import { getUserProfile } from "@/queries/profile";
+import { getHandicapHistory } from "@/queries/handicap";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatDatum, signDisplay } from "@/lib/utils";
+import { HandicapHistoryChart } from "@/components/charts/handicap-history-chart";
+import { formatDatum, formatDatumKurz, signDisplay } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const stats = await getPublicStats();
+  const [stats, profile, history] = await Promise.all([
+    getPublicStats(),
+    getUserProfile(user!.id),
+    getHandicapHistory(user!.id),
+  ]);
+
+  const chartData = history.map((p) => ({
+    datum: formatDatumKurz(p.datum),
+    internal: p.internal,
+    official: p.official,
+    turnier: p.turnier,
+  }));
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl">
+    <div className="flex flex-col gap-6 max-w-5xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Dashboard</h1>
@@ -55,22 +70,49 @@ export default async function AdminDashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Ø Über Par (letzte 5)</CardTitle>
+            <CardTitle>HCP Offiziell</CardTitle>
           </CardHeader>
           <p className="text-3xl font-bold">
-            {stats.totalRunden > 0 ? signDisplay(stats.durchschnittUberPar) : "–"}
+            {profile.officialHandicapIndex != null
+              ? profile.officialHandicapIndex.toFixed(1)
+              : "–"}
+          </p>
+          <p className="text-[10px] text-[var(--color-muted-foreground)] mt-1">
+            DGV (manuell gepflegt)
           </p>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Handicap-Schätzung</CardTitle>
+            <CardTitle>HCP Intern</CardTitle>
           </CardHeader>
           <p className="text-3xl font-bold">
-            {stats.totalRunden > 0 ? signDisplay(stats.durchschnittUberPar) : "–"}
+            {profile.internalHandicapIndex != null
+              ? profile.internalHandicapIndex.toFixed(1)
+              : "–"}
+          </p>
+          <p className="text-[10px] text-[var(--color-muted-foreground)] mt-1">
+            vereinfachte WHS (jede Runde)
           </p>
         </Card>
       </div>
+
+      {chartData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Handicap-Verlauf</CardTitle>
+          </CardHeader>
+          <p className="text-xs text-[var(--color-muted-foreground)] mb-3 leading-relaxed">
+            <span className="inline-block w-2 h-2 rounded-full bg-[oklch(0.72_0.17_142)] mr-1.5 align-middle" />
+            Intern = nach jeder Runde aktualisiert (vereinfachte WHS).{" "}
+            <span className="inline-block w-2 h-2 rounded-full bg-[oklch(0.75_0.18_50)] ml-2 mr-1.5 align-middle" />
+            Offiziell = manuell gepflegte DGV-Einträge unter <a href="/admin/profil" className="text-[var(--color-primary)] underline underline-offset-2">Profil</a>.
+          </p>
+          <Suspense fallback={<div className="h-96 animate-pulse bg-[var(--color-muted)] rounded" />}>
+            <HandicapHistoryChart data={chartData} />
+          </Suspense>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
@@ -86,6 +128,11 @@ export default async function AdminDashboardPage() {
             <Link href="/admin/runden">
               <Button variant="ghost" className="w-full justify-start">
                 📋 Alle Runden anzeigen
+              </Button>
+            </Link>
+            <Link href="/admin/profil">
+              <Button variant="ghost" className="w-full justify-start">
+                👤 Profil & Handicap
               </Button>
             </Link>
             <Link href="/admin/bag">

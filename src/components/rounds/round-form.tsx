@@ -7,9 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { HoleInputGrid } from "./hole-input-grid";
-import type { RoundWithHoles } from "@/types/round";
 
 type FormState = { error: string | Record<string, string[]> } | null;
+
+export type RoundFormDefaults = {
+  datum: Date | string;
+  turnier?: boolean;
+  notizen?: string | null;
+  links?: string[];
+  holes?: Array<{ holeNumber: number; strokes: number; putts: number | null }>;
+};
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -22,16 +29,17 @@ function SubmitButton() {
 
 interface RoundFormProps {
   action: (prevState: FormState, formData: FormData) => Promise<FormState>;
-  defaultValues?: Partial<RoundWithHoles>;
+  defaultValues?: RoundFormDefaults;
+  handicapIndex: number;
 }
 
-export function RoundForm({ action, defaultValues }: RoundFormProps) {
+export function RoundForm({ action, defaultValues, handicapIndex }: RoundFormProps) {
   const [state, formAction] = useActionState(action, null);
 
-  const defaultHoles: Record<number, number> = {};
+  const defaultHoles: Record<number, { strokes: number; putts: number | null }> = {};
   if (defaultValues?.holes) {
     defaultValues.holes.forEach((h) => {
-      defaultHoles[h.holeNumber] = h.strokes;
+      defaultHoles[h.holeNumber] = { strokes: h.strokes, putts: h.putts ?? null };
     });
   }
 
@@ -40,7 +48,7 @@ export function RoundForm({ action, defaultValues }: RoundFormProps) {
     : new Date().toISOString().split("T")[0];
 
   return (
-    <form action={formAction} className="flex flex-col gap-6 max-w-2xl">
+    <form action={formAction} className="flex flex-col gap-6 max-w-3xl">
       {state?.error && typeof state.error === "string" && (
         <div className="rounded-md bg-[var(--color-destructive)]/10 border border-[var(--color-destructive)]/30 px-4 py-3 text-sm text-[var(--color-destructive)]">
           {state.error}
@@ -75,7 +83,7 @@ export function RoundForm({ action, defaultValues }: RoundFormProps) {
         <h3 className="text-sm font-medium text-[var(--color-muted-foreground)] uppercase tracking-wide mb-4">
           Loch-Ergebnisse
         </h3>
-        <HoleInputGrid defaultValues={defaultHoles} />
+        <HoleInputGrid defaultValues={defaultHoles} handicapIndex={handicapIndex} />
       </div>
 
       <Textarea

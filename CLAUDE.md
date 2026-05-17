@@ -28,27 +28,30 @@ Golf performance tracker SaaS. Target: golf.maxbeutler.de. UI language: **German
 src/
   app/
     (public)/         # No auth — /home (stats), /bag (clubs)
-    (admin)/          # Auth required — /admin, /admin/runden, /admin/bag
+    (admin)/          # Auth required — /admin, /admin/runden, /admin/bag, /admin/profil
     login/            # Login page
     auth/callback/    # Supabase OAuth callback
     globals.css       # Tailwind v4 @theme + OKLch palette
   actions/
     auth.ts           # signIn, signOut
-    rounds.ts         # createRound, updateRound, deleteRound
+    rounds.ts         # createRound, updateRound, deleteRound, recalculateAllRoundsForUser
     clubs.ts          # createClub, updateClub, deleteClub
+    profile.ts        # updateOfficialHandicapIndex
   queries/
     rounds.ts         # getAllRoundsWithStats, getRoundById, getPublicStats
     clubs.ts          # getAllClubs, getClubById, getGroupedClubs
+    profile.ts        # getUserProfile, ensureUserProfile
   components/
     ui/               # button, input, textarea, select, card, badge, spinner
     layout/           # public-nav, admin-sidebar, admin-header
-    rounds/           # round-form, hole-input-grid, delete-round-button
+    rounds/           # round-form, hole-input-grid, delete-round-button, recent-rounds-table
     bag/              # club-form, delete-club-button
     charts/           # performance-trend-chart, hole-averages-chart
+    profile/          # profile-form, recalc-button
   generated/
     prisma/client.ts  # Generated Prisma client — import PrismaClient and all model types from here
   lib/
-    calculations.ts   # All golf stat pure functions — HOLES, TOTAL_PAR, stableford, averages
+    calculations.ts   # Golf stat pure functions — HOLES (par + stroke indexes), WHS calcs (course handicap, NDB cap, stableford net, differential, internal HI), averages
     utils.ts          # cn(), formatDatum(), formatDatumKurz(), signDisplay()
     prisma.ts         # Singleton PrismaClient (PrismaPg adapter)
     supabase/
@@ -59,28 +62,42 @@ src/
     round.ts          # RoundWithHoles, RoundWithStats
     club.ts           # Club, CLUB_TYPEN, ClubTyp
 prisma/
-  schema.prisma       # Round, RoundHole, Club models (generator outputs to src/generated/prisma)
+  schema.prisma       # Round, RoundHole, Club, UserProfile (generator outputs to src/generated/prisma)
 prisma.config.ts      # Prisma 7 CLI config — uses DIRECT_URL for migrations (bypasses PgBouncer)
+tests/
+  whs.test.ts         # Calculation tests — run via `npm run test:whs` (no test framework, plain tsx)
 ```
 
 ## Database Schema
 
 ```prisma
 model Round {
-  id        String      @id @default(cuid())
-  userId    String
-  datum     DateTime    @db.Date
-  turnier   Boolean     @default(false)
-  notizen   String?
-  links     String[]
-  holes     RoundHole[]
+  id                       String      @id @default(cuid())
+  userId                   String
+  datum                    DateTime    @db.Date
+  turnier                  Boolean     @default(false)
+  notizen                  String?
+  links                    String[]
+  // WHS-derived (nullable for pre-handicap rounds — backfill via /admin/profil)
+  courseHandicap           Int?
+  adjustedGrossScore       Int?
+  scoreDifferential        Decimal?    // 1 decimal
+  totalStablefordPoints    Int?        // net stableford with handicap strokes
+  handicapIndexBeforeRound Decimal?    // HI used to compute this round's stats
+  handicapIndexAfterRound  Decimal?    // HI after this round (running internal HI)
+  holes                    RoundHole[]
 }
 
 model RoundHole {
-  id         String  @id @default(cuid())
-  roundId    String
-  holeNumber Int     // 1–9
-  strokes    Int
+  id               String  @id @default(cuid())
+  roundId          String
+  holeNumber       Int     // 1–9
+  strokes          Int
+  putts            Int?
+  handicapStrokes  Int?    // strokes received on this hole based on courseHandicap + SI-9
+  adjustedScore    Int?    // min(strokes, par + 2 + handicapStrokes)
+  netScore         Int?    // strokes - handicapStrokes
+  stablefordPoints Int?    // max(0, 2 + (par - netScore))
   @@unique([roundId, holeNumber])
 }
 
@@ -95,13 +112,30 @@ model Club {
   notizen             String?
   sortOrder           Int      @default(0)
 }
+
+model UserProfile {
+  userId                String   @id  // matches Supabase auth.uid
+  officialHandicapIndex Decimal?      // DGV HI (manual, seeded with 37.6)
+  internalHandicapIndex Decimal?      // computed from score differentials
+}
 ```
 
 ## Course Configuration
 
-- **9 holes**, Par 33 total
-- Holes (in order): Teehäuschen(4), Schlosspark(4), Tafelberg(3), Schweinebucht(5), Swilcan Bridge(4), Kessel(3), Insel(3), Birkenwäldchen(4), Grande Finale(3)
-- **Stableford**: `max(0, 2 + par - strokes)` per hole — defined in `src/lib/calculations.ts`
+- **9 holes**, Par 33 total, Course Rating 32.0/9 (64.0/18), Slope 124 — constants in `src/lib/calculations.ts`
+- Holes (in order): Teehäuschen(4, SI 3/2), Schlosspark(4, SI 5/3), Tafelberg(3, SI 13/7), Schweinebucht(5, SI 1/1), Swilcan Bridge(4, SI 9/5), Kessel(3, SI 15/8), Insel(3, SI 11/6), Birkenwäldchen(4, SI 7/4), Grande Finale(3, SI 17/9) — pairs are `strokeIndex18 / strokeIndex9`
+- **Net Stableford**: `max(0, 2 + (par - (strokes - handicapStrokes)))` per hole
+
+## Handicap Calculation (simplified WHS — not DGV-official)
+
+- `courseHandicap9 = round((HI / 2) * (slope / 113) + (CR9 - par9))` — typically ≈ 20 for HI 37.6
+- Distribute strokes per hole using `floor(CH / 9)` + 1 for holes with `SI9 ≤ CH mod 9`
+- Net Double Bogey cap: `adjustedScore = min(strokes, par + 2 + handicapStrokes)`
+- `scoreDifferential9 = (AGS - CR9) * 113 / slope`, rounded to 1 decimal
+- Internal HI = average of best N differentials from last 20 rounds (N table per spec: `bestDifferentialsCount`)
+- HI fallback chain: `internal → official → 54.0`
+- On every round create/update: re-compute round stats, then `recalculateUserHandicapIndex(userId)`; sets `handicapIndexAfterRound` on the round and `internalHandicapIndex` on the profile. Editing a round preserves its `handicapIndexBeforeRound` for history stability.
+- Bulk backfill button under `/admin/profil` re-derives every round chronologically.
 
 ## Auth Flow
 

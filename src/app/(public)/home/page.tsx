@@ -83,11 +83,11 @@ export default async function HomePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Rekordrunde Über Par</CardTitle>
+            <CardTitle>Handicap Index</CardTitle>
           </CardHeader>
-          {stats.rekordrunde ? (
+          {stats.officialHandicapIndex != null ? (
             <p className="text-3xl font-bold text-[var(--color-foreground)]">
-              {signDisplay(stats.rekordrunde.uberPar)}
+              {stats.officialHandicapIndex.toFixed(1)}
             </p>
           ) : (
             <p className="text-[var(--color-muted-foreground)]">–</p>

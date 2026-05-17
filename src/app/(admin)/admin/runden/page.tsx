@@ -16,7 +16,7 @@ export default async function RundenPage() {
   const rounds = await getAllRoundsWithStats(user!.id);
 
   return (
-    <div className="flex flex-col gap-6 max-w-5xl">
+    <div className="flex flex-col gap-6 max-w-6xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Runden</h1>
@@ -43,13 +43,17 @@ export default async function RundenPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[var(--color-card-border)]">
-                  <th className="text-left py-3 pr-4 text-[var(--color-muted-foreground)] font-medium">Datum</th>
-                  <th className="text-right py-3 pr-4 text-[var(--color-muted-foreground)] font-medium">Schläge</th>
-                  <th className="text-right py-3 pr-4 text-[var(--color-muted-foreground)] font-medium">Über Par</th>
-                  <th className="text-right py-3 pr-4 text-[var(--color-muted-foreground)] font-medium">Stableford</th>
-                  <th className="text-left py-3 pr-4 text-[var(--color-muted-foreground)] font-medium">Typ</th>
-                  <th className="text-right py-3 text-[var(--color-muted-foreground)] font-medium">Aktionen</th>
+                <tr className="border-b border-[var(--color-card-border)] text-[var(--color-muted-foreground)]">
+                  <th className="text-left py-3 pr-3 font-medium">Datum</th>
+                  <th className="text-right py-3 pr-3 font-medium">Schläge</th>
+                  <th className="text-right py-3 pr-3 font-medium">Über Par</th>
+                  <th className="text-right py-3 pr-3 font-medium" title="Adjusted Gross Score">AGS</th>
+                  <th className="text-right py-3 pr-3 font-medium" title="Course Handicap">CH</th>
+                  <th className="text-right py-3 pr-3 font-medium" title="Score Differential">Diff.</th>
+                  <th className="text-right py-3 pr-3 font-medium">Netto-SP</th>
+                  <th className="text-right py-3 pr-3 font-medium" title="HI nach dieser Runde">HI</th>
+                  <th className="text-left py-3 pr-3 font-medium">Typ</th>
+                  <th className="text-right py-3 font-medium">Aktionen</th>
                 </tr>
               </thead>
               <tbody>
@@ -58,7 +62,7 @@ export default async function RundenPage() {
                     key={runde.id}
                     className="border-b border-[var(--color-card-border)]/50 hover:bg-[var(--color-muted)]/30 transition-colors"
                   >
-                    <td className="py-3 pr-4">
+                    <td className="py-3 pr-3">
                       <Link
                         href={`/admin/runden/${runde.id}`}
                         className="text-[var(--color-foreground)] hover:text-[var(--color-primary)] transition-colors"
@@ -66,18 +70,30 @@ export default async function RundenPage() {
                         {formatDatum(runde.datum)}
                       </Link>
                     </td>
-                    <td className="py-3 pr-4 text-right font-mono font-medium text-[var(--color-foreground)]">
+                    <td className="py-3 pr-3 text-right font-mono font-medium text-[var(--color-foreground)]">
                       {runde.totalStrokes}
                     </td>
-                    <td className="py-3 pr-4 text-right font-mono">
+                    <td className="py-3 pr-3 text-right font-mono">
                       <span className={runde.uberPar <= 0 ? "text-[var(--color-primary)]" : "text-[var(--color-muted-foreground)]"}>
                         {signDisplay(runde.uberPar)}
                       </span>
                     </td>
-                    <td className="py-3 pr-4 text-right font-mono text-[var(--color-foreground)]">
+                    <td className="py-3 pr-3 text-right font-mono text-[var(--color-muted-foreground)]">
+                      {runde.adjustedGrossScore ?? "–"}
+                    </td>
+                    <td className="py-3 pr-3 text-right font-mono text-[var(--color-muted-foreground)]">
+                      {runde.courseHandicap ?? "–"}
+                    </td>
+                    <td className="py-3 pr-3 text-right font-mono text-[var(--color-muted-foreground)]">
+                      {runde.scoreDifferential != null ? Number(runde.scoreDifferential).toFixed(1) : "–"}
+                    </td>
+                    <td className="py-3 pr-3 text-right font-mono text-[var(--color-foreground)]">
                       {runde.stablefordPunkte}
                     </td>
-                    <td className="py-3 pr-4">
+                    <td className="py-3 pr-3 text-right font-mono text-[var(--color-foreground)]">
+                      {runde.handicapIndexAfterRound != null ? Number(runde.handicapIndexAfterRound).toFixed(1) : "–"}
+                    </td>
+                    <td className="py-3 pr-3">
                       {runde.turnier ? (
                         <Badge variant="warning">Turnier</Badge>
                       ) : (
@@ -87,7 +103,7 @@ export default async function RundenPage() {
                     <td className="py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Link href={`/admin/runden/${runde.id}`}>
-                          <Button variant="ghost" size="sm">Bearbeiten</Button>
+                          <Button variant="ghost" size="sm">Details</Button>
                         </Link>
                         <DeleteRoundButton id={runde.id} />
                       </div>

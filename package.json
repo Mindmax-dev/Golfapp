@@ -11,7 +11,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "db:reset": "npx supabase db reset && npx prisma migrate deploy"
+    "db:reset": "npx supabase db reset && npx prisma migrate deploy",
+    "test:whs": "tsx tests/whs.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

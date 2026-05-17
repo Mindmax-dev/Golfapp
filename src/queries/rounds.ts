@@ -1,5 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { calculateRoundStats, getDurchschnittUberParLetzter5, getRekordrunde, getHoleAverages, getRollingStats } from "@/lib/calculations";
+import {
+  calculateRoundStats,
+  getDurchschnittUberParLetzter5,
+  getRekordrunde,
+  getHoleAverages,
+  getRollingStats,
+} from "@/lib/calculations";
 import type { RoundWithStats } from "@/types/round";
 
 export async function getAllRoundsWithStats(userId?: string): Promise<RoundWithStats[]> {
@@ -10,10 +16,13 @@ export async function getAllRoundsWithStats(userId?: string): Promise<RoundWithS
     orderBy: { datum: "desc" },
   });
 
-  return rounds.map((r) => ({
-    ...r,
-    ...calculateRoundStats(r.holes),
-  }));
+  return rounds.map((r) => {
+    const base = calculateRoundStats(r.holes);
+    // Prefer stored net Stableford (computed with handicap strokes); fall back to gross.
+    const stablefordPunkte =
+      r.totalStablefordPoints != null ? r.totalStablefordPoints : base.stablefordPunkte;
+    return { ...r, ...base, stablefordPunkte };
+  });
 }
 
 export async function getRoundById(id: string) {
@@ -37,6 +46,12 @@ export async function getPublicStats() {
   }));
   const rollingData = getRollingStats(rounds);
 
+  // Single-user app: any profile carries the official HI shown publicly.
+  const anyProfile = await prisma.userProfile.findFirst();
+  const officialHandicapIndex = anyProfile?.officialHandicapIndex
+    ? Number(anyProfile.officialHandicapIndex)
+    : null;
+
   return {
     totalRunden: rounds.length,
     rekordrunde,
@@ -45,5 +60,6 @@ export async function getPublicStats() {
     trendData,
     rollingData,
     letzteRunden: rounds.slice(0, 10),
+    officialHandicapIndex,
   };
 }

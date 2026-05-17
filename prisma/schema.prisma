@@ -17,6 +17,13 @@ model Round {
   createdAt DateTime    @default(now()) @map("created_at")
   updatedAt DateTime    @updatedAt @map("updated_at")
 
+  courseHandicap            Int?     @map("course_handicap")
+  adjustedGrossScore        Int?     @map("adjusted_gross_score")
+  scoreDifferential         Decimal? @map("score_differential") @db.Decimal(4, 1)
+  totalStablefordPoints     Int?     @map("total_stableford_points")
+  handicapIndexBeforeRound  Decimal? @map("handicap_index_before_round") @db.Decimal(4, 1)
+  handicapIndexAfterRound   Decimal? @map("handicap_index_after_round") @db.Decimal(4, 1)
+
   holes RoundHole[]
 
   @@map("rounds")
@@ -27,6 +34,12 @@ model RoundHole {
   roundId    String @map("round_id")
   holeNumber Int    @map("hole_number")
   strokes    Int
+
+  putts             Int?
+  handicapStrokes   Int? @map("handicap_strokes")
+  adjustedScore     Int? @map("adjusted_score")
+  netScore          Int? @map("net_score")
+  stablefordPoints  Int? @map("stableford_points")
 
   round Round @relation(fields: [roundId], references: [id], onDelete: Cascade)
 
@@ -48,4 +61,27 @@ model Club {
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("clubs")
+}
+
+model UserProfile {
+  userId                String   @id @map("user_id")
+  officialHandicapIndex Decimal? @map("official_handicap_index") @db.Decimal(4, 1)
+  internalHandicapIndex Decimal? @map("internal_handicap_index") @db.Decimal(4, 1)
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("user_profiles")
+}
+
+model OfficialHandicapEntry {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  datum         DateTime @db.Date
+  handicapIndex Decimal  @map("handicap_index") @db.Decimal(4, 1)
+  notiz         String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, datum])
+  @@map("official_handicap_entries")
 }
