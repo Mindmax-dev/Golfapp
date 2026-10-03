@@ -3,6 +3,7 @@
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -10,17 +11,29 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import {
+  getHoleTrendColor,
+  HOLE_TREND_COLORS,
+  HoleTrendLegend,
+} from "@/components/charts/hole-trend-legend";
 
 interface TooltipPayloadEntry {
   name: string;
   value: number;
   color: string;
-  payload: { fullName: string; par: number };
+  payload: {
+    fullName: string;
+    par: number;
+    averageLast20: number;
+    averageLast5: number;
+  };
 }
 
 function HoleTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayloadEntry[] }) {
   if (!active || !payload?.length) return null;
-  const { fullName, par } = payload[0].payload;
+  const { fullName, par, averageLast20, averageLast5 } = payload[0].payload;
+  const change = Math.round((averageLast5 - averageLast20) * 100) / 100;
+  const trendLabel = change < 0 ? "Verbessert" : change > 0 ? "Verschlechtert" : "Gleich";
   return (
     <div style={{
       backgroundColor: "oklch(0.18 0 0)",
@@ -38,6 +51,9 @@ function HoleTooltip({ active, payload }: { active?: boolean; payload?: TooltipP
           </p>
         );
       })}
+      <p style={{ color: getHoleTrendColor(averageLast20, averageLast5), marginTop: "6px", fontWeight: 500 }}>
+        {trendLabel}: {change > 0 ? "+" : ""}{change} {"Schl\u00e4ge"}
+      </p>
     </div>
   );
 }
@@ -46,7 +62,7 @@ interface HoleAverage {
   holeNumber: number;
   name: string;
   par: number;
-  average: number;
+  averageLast20: number;
   averageLast5: number;
 }
 
@@ -55,7 +71,7 @@ export function HoleAveragesChart({ data }: { data: HoleAverage[] }) {
     name: `L${h.holeNumber}`,
     fullName: h.name,
     par: h.par,
-    average: h.average,
+    averageLast20: h.averageLast20,
     averageLast5: h.averageLast5,
   }));
 
@@ -77,14 +93,16 @@ export function HoleAveragesChart({ data }: { data: HoleAverage[] }) {
           domain={["auto", "auto"]}
         />
         <Tooltip content={<HoleTooltip />} />
-        <Legend
-          wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }}
-          formatter={(value) => (
-            <span style={{ color: "oklch(0.75 0 0)" }}>{value}</span>
-          )}
-        />
-        <Bar dataKey="average" name="Alle Runden" fill="oklch(0.72 0.17 142)" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="averageLast5" name="Letzte 5" fill="oklch(0.75 0.18 50)" radius={[4, 4, 0, 0]} />
+        <Legend content={() => <HoleTrendLegend />} />
+        <Bar dataKey="averageLast20" name="Letzte 20" fill={HOLE_TREND_COLORS.reference} radius={[4, 4, 0, 0]} />
+        <Bar dataKey="averageLast5" name="Letzte 5" radius={[4, 4, 0, 0]}>
+          {chartData.map((hole) => (
+            <Cell
+              key={hole.name}
+              fill={getHoleTrendColor(hole.averageLast20, hole.averageLast5)}
+            />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

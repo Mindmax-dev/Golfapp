@@ -15,6 +15,9 @@ import {
   bestDifferentialsCount,
   computeRoundWhsStats,
   effectiveHandicapIndex,
+  getHoleAverages,
+  getPuttAverages,
+  getPuttingTrend,
   HOLES,
   FALLBACK_HANDICAP_INDEX,
 } from "../src/lib/calculations";
@@ -159,6 +162,22 @@ console.log("\neffectiveHandicapIndex");
 check("internal preferred", effectiveHandicapIndex({ internalHandicapIndex: 12.3, officialHandicapIndex: 37.6 }), 12.3);
 check("official when internal null", effectiveHandicapIndex({ internalHandicapIndex: null, officialHandicapIndex: 37.6 }), 37.6);
 check("fallback when both null", effectiveHandicapIndex({ internalHandicapIndex: null, officialHandicapIndex: null }), FALLBACK_HANDICAP_INDEX);
+
+console.log("\n20-vs-5 hole trends");
+const trendRounds = Array.from({ length: 20 }, (_, roundIndex) => ({
+  holes: [{
+    holeNumber: 1,
+    strokes: roundIndex < 5 ? 4 : 6,
+    putts: roundIndex < 5 ? 1 : 3,
+  }],
+}));
+const strokeTrend = getHoleAverages(trendRounds)[0];
+check("strokes use last 20 as baseline", strokeTrend.averageLast20, 5.5);
+check("strokes use last 5 as current trend", strokeTrend.averageLast5, 4);
+const puttTrend = getPuttAverages(trendRounds)[0];
+check("putts use last 20 as baseline", puttTrend.averageLast20, 2.5);
+check("putts use last 5 as current trend", puttTrend.averageLast5, 1);
+check("putting delta marks improvement as negative", getPuttingTrend(trendRounds).delta, -1.5);
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log(`\n${passed} passed, ${failed} failed`);

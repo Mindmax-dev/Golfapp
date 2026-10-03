@@ -20,7 +20,11 @@ export const NEUTRAL_SLOPE = 113;
 export const FALLBACK_HANDICAP_INDEX = 54.0;
 export const DEFAULT_OFFICIAL_HANDICAP_INDEX = 37.6;
 
-export type HoleResult = { holeNumber: number; strokes: number };
+export type HoleResult = {
+  holeNumber: number;
+  strokes: number;
+  putts?: number | null;
+};
 
 export function holeConfig(holeNumber: number) {
   const h = HOLES.find((x) => x.number === holeNumber);
@@ -75,26 +79,81 @@ export function getRollingStats(
   });
 }
 
-function holeAvg(rounds: Array<{ holes: HoleResult[] }>, holeNumber: number, fallback: number): number {
-  const strokes = rounds.flatMap((r) =>
-    r.holes.filter((h) => h.holeNumber === holeNumber).map((h) => h.strokes)
+function roundedAverage(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100;
+}
+
+function holeMetricAverage(
+  rounds: Array<{ holes: HoleResult[] }>,
+  holeNumber: number,
+  metric: "strokes" | "putts"
+): number | null {
+  const values = rounds.flatMap((round) =>
+    round.holes
+      .filter((hole) => hole.holeNumber === holeNumber)
+      .map((hole) => hole[metric])
+      .filter((value): value is number => value != null)
   );
-  return strokes.length > 0
-    ? Math.round((strokes.reduce((s, n) => s + n, 0) / strokes.length) * 100) / 100
-    : fallback;
+  return roundedAverage(values);
 }
 
 export function getHoleAverages(
   rounds: Array<{ holes: HoleResult[] }>
-): Array<{ holeNumber: number; name: string; par: number; average: number; averageLast5: number }> {
+): Array<{
+  holeNumber: number;
+  name: string;
+  par: number;
+  averageLast20: number;
+  averageLast5: number;
+}> {
+  const last20 = rounds.slice(0, 20);
   const last5 = rounds.slice(0, 5);
   return HOLES.map((hole) => ({
     holeNumber: hole.number,
     name: hole.name,
     par: hole.par,
-    average: holeAvg(rounds, hole.number, hole.par),
-    averageLast5: holeAvg(last5, hole.number, hole.par),
+    averageLast20: holeMetricAverage(last20, hole.number, "strokes") ?? hole.par,
+    averageLast5: holeMetricAverage(last5, hole.number, "strokes") ?? hole.par,
   }));
+}
+
+export function getPuttAverages(
+  rounds: Array<{ holes: HoleResult[] }>
+): Array<{
+  holeNumber: number;
+  name: string;
+  averageLast20: number | null;
+  averageLast5: number | null;
+}> {
+  const last20 = rounds.slice(0, 20);
+  const last5 = rounds.slice(0, 5);
+  return HOLES.map((hole) => ({
+    holeNumber: hole.number,
+    name: hole.name,
+    averageLast20: holeMetricAverage(last20, hole.number, "putts"),
+    averageLast5: holeMetricAverage(last5, hole.number, "putts"),
+  }));
+}
+
+export function getPuttingTrend(
+  rounds: Array<{ holes: HoleResult[] }>
+): { averageLast20: number | null; averageLast5: number | null; delta: number | null } {
+  const puttsPerHole = (roundSlice: Array<{ holes: HoleResult[] }>) =>
+    roundSlice.flatMap((round) =>
+      round.holes
+        .map((hole) => hole.putts)
+        .filter((putts): putts is number => putts != null)
+    );
+
+  const averageLast20 = roundedAverage(puttsPerHole(rounds.slice(0, 20)));
+  const averageLast5 = roundedAverage(puttsPerHole(rounds.slice(0, 5)));
+  const delta =
+    averageLast20 != null && averageLast5 != null
+      ? Math.round((averageLast5 - averageLast20) * 100) / 100
+      : null;
+
+  return { averageLast20, averageLast5, delta };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

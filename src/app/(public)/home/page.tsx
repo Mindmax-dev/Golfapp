@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getPublicStats } from "@/queries/rounds";
-import { formatDatum, signDisplay } from "@/lib/utils";
+import { formatDatum, formatDatumKurz, signDisplay } from "@/lib/utils";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { RollingAverageChart } from "@/components/charts/rolling-average-chart";
 import { HoleAveragesChart } from "@/components/charts/hole-averages-chart";
+import { HolePuttsChart } from "@/components/charts/hole-putts-chart";
 import { RecentRoundsTable } from "@/components/rounds/recent-rounds-table";
-import { formatDatumKurz } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Statistiken" };
 
@@ -110,11 +110,52 @@ export default async function HomePage() {
       {/* Hole Averages */}
       {stats.totalRunden > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Loch-Durchschnitt</CardTitle>
+          <CardHeader className="items-start">
+            <div>
+              <CardTitle>{"Schl\u00e4ge pro Loch"}</CardTitle>
+              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                Letzte 20 Runden im Vergleich zum aktuellen 5-Runden-Trend
+              </p>
+            </div>
           </CardHeader>
           <Suspense fallback={<div className="h-64 animate-pulse bg-[var(--color-muted)] rounded" />}>
             <HoleAveragesChart data={stats.holeAverages} />
+          </Suspense>
+        </Card>
+      )}
+
+      {stats.puttAverages.some((hole) => hole.averageLast20 != null) && (
+        <Card>
+          <CardHeader className="flex-col items-start gap-3 sm:flex-row sm:gap-4">
+            <div>
+              <CardTitle>Putts pro Loch</CardTitle>
+              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                <span className="block">Letzte 20 Runden im Vergleich zum aktuellen 5-Runden-Trend</span>
+                <span className="mt-0.5 block">Nur Runden mit erfassten Putts; weniger ist besser</span>
+              </p>
+            </div>
+            {stats.puttingTrend.delta != null && (
+              <div
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                  stats.puttingTrend.delta < 0
+                    ? "border-[oklch(0.45_0.12_142)] bg-[oklch(0.22_0.05_142)] text-[oklch(0.82_0.15_142)]"
+                    : stats.puttingTrend.delta > 0
+                      ? "border-[oklch(0.5_0.14_27)] bg-[oklch(0.22_0.05_27)] text-[oklch(0.8_0.15_27)]"
+                      : "border-[oklch(0.55_0.12_85)] bg-[oklch(0.23_0.05_85)] text-[oklch(0.84_0.14_85)]"
+                }`}
+              >
+                {stats.puttingTrend.delta < 0
+                  ? "Verbessert"
+                  : stats.puttingTrend.delta > 0
+                    ? "Verschlechtert"
+                    : "Unver\u00e4ndert"}{" "}
+                {stats.puttingTrend.delta > 0 ? "+" : ""}
+                {stats.puttingTrend.delta.toFixed(2).replace(".", ",")} Putts/Loch
+              </div>
+            )}
+          </CardHeader>
+          <Suspense fallback={<div className="h-64 animate-pulse bg-[var(--color-muted)] rounded" />}>
+            <HolePuttsChart data={stats.puttAverages} />
           </Suspense>
         </Card>
       )}

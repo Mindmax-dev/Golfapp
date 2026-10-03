@@ -4,6 +4,8 @@ import {
   getDurchschnittUberParLetzter5,
   getRekordrunde,
   getHoleAverages,
+  getPuttAverages,
+  getPuttingTrend,
   getRollingStats,
 } from "@/lib/calculations";
 import type { RoundWithStats } from "@/types/round";
@@ -38,6 +40,8 @@ export async function getPublicStats() {
   const rekordrunde = getRekordrunde(rounds);
   const durchschnittUberPar = getDurchschnittUberParLetzter5(rounds);
   const holeAverages = getHoleAverages(rounds);
+  const puttAverages = getPuttAverages(rounds);
+  const puttingTrend = getPuttingTrend(rounds);
   const trendData = [...rounds].reverse().map((r) => ({
     datum: r.datum,
     uberPar: r.uberPar,
@@ -64,6 +68,8 @@ export async function getPublicStats() {
     rekordrunde,
     durchschnittUberPar,
     holeAverages,
+    puttAverages,
+    puttingTrend,
     trendData,
     rollingData,
     letzteRunden: rounds.slice(0, 10),
