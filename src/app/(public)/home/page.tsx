@@ -31,7 +31,7 @@ export default async function HomePage() {
   }));
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex w-full min-w-0 flex-col gap-6 sm:gap-8">
       <div>
         <h1 className="text-2xl font-bold text-[var(--color-foreground)]">
           Golf Statistiken
@@ -42,7 +42,7 @@ export default async function HomePage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Runden gespielt</CardTitle>

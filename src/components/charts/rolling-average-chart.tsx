@@ -35,7 +35,7 @@ export function RollingAverageChart({ data }: { data: RollingDataPoint[] }) {
   const enriched = data.map((d, i) => ({ ...d, trend: trendValues[i] }));
 
   return (
-    <ResponsiveContainer width="100%" height={380}>
+    <ResponsiveContainer width="100%" height={380} minWidth={0}>
       <LineChart data={enriched} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.26 0 0)" />
         <XAxis

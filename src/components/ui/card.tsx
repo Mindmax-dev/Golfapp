@@ -10,7 +10,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-5",
+        "min-w-0 overflow-hidden rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-4 sm:p-5",
         className
       )}
     >

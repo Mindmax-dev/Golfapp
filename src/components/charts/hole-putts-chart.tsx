@@ -77,7 +77,7 @@ export function HolePuttsChart({ data }: { data: PuttAverage[] }) {
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height={280} minWidth={0}>
       <BarChart
         data={chartData}
         margin={{ top: 5, right: 20, left: -10, bottom: 5 }}

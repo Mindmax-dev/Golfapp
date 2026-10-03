@@ -8,9 +8,11 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[var(--color-background)]">
+    <div className="min-h-screen w-full min-w-0 overflow-x-clip bg-[var(--color-background)]">
       <PublicNav />
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8">{children}</main>
+      <main className="mx-auto w-full min-w-0 max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        {children}
+      </main>
     </div>
   );
 }
