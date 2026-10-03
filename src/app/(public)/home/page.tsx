@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { RollingAverageChart } from "@/components/charts/rolling-average-chart";
 import { HoleAveragesChart } from "@/components/charts/hole-averages-chart";
 import { HolePuttsChart } from "@/components/charts/hole-putts-chart";
+import { PossibleBestChart } from "@/components/charts/possible-best-chart";
 import { RecentRoundsTable } from "@/components/rounds/recent-rounds-table";
 
 export const metadata: Metadata = { title: "Statistiken" };
@@ -28,6 +29,12 @@ export default async function HomePage() {
     turnier: r.turnier,
     links: r.links,
     holes: r.holes.map((h) => ({ holeNumber: h.holeNumber, strokes: h.strokes })),
+  }));
+
+  const possibleBestData = stats.possibleBest.map((hole) => ({
+    ...hole,
+    firstAchievedAt: hole.firstAchievedAt ? formatDatum(hole.firstAchievedAt) : null,
+    firstAchievedAtShort: hole.firstAchievedAt ? formatDatumKurz(hole.firstAchievedAt) : null,
   }));
 
   return (
@@ -156,6 +163,25 @@ export default async function HomePage() {
           </CardHeader>
           <Suspense fallback={<div className="h-64 animate-pulse bg-[var(--color-muted)] rounded" />}>
             <HolePuttsChart data={stats.puttAverages} />
+          </Suspense>
+        </Card>
+      )}
+
+      {possibleBestData.some((hole) => hole.bestStrokes != null) && (
+        <Card>
+          <CardHeader className="items-start">
+            <div>
+              <CardTitle>Possible Best</CardTitle>
+              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                {"Wenigste Schl\u00e4ge pro Loch aus allen Runden"}
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                Datum = erstmals erreicht
+              </p>
+            </div>
+          </CardHeader>
+          <Suspense fallback={<div className="h-[410px] animate-pulse rounded bg-[var(--color-muted)]" />}>
+            <PossibleBestChart data={possibleBestData} />
           </Suspense>
         </Card>
       )}

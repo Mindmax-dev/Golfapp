@@ -139,6 +139,50 @@ export function getPuttAverages(
   }));
 }
 
+export function getPossibleBest(
+  rounds: Array<{ datum: Date; holes: HoleResult[] }>
+): Array<{
+  holeNumber: number;
+  name: string;
+  par: number;
+  bestStrokes: number | null;
+  firstAchievedAt: Date | null;
+}> {
+  return HOLES.map((hole) => {
+    const results = rounds.flatMap((round) =>
+      round.holes
+        .filter((result) => result.holeNumber === hole.number)
+        .map((result) => ({ strokes: result.strokes, datum: round.datum }))
+    );
+
+    if (results.length === 0) {
+      return {
+        holeNumber: hole.number,
+        name: hole.name,
+        par: hole.par,
+        bestStrokes: null,
+        firstAchievedAt: null,
+      };
+    }
+
+    const bestStrokes = Math.min(...results.map((result) => result.strokes));
+    const bestResults = results.filter((result) => result.strokes === bestStrokes);
+    const firstAchievedAt = bestResults.reduce(
+      (earliest, result) =>
+        result.datum.getTime() < earliest.getTime() ? result.datum : earliest,
+      bestResults[0].datum
+    );
+
+    return {
+      holeNumber: hole.number,
+      name: hole.name,
+      par: hole.par,
+      bestStrokes,
+      firstAchievedAt,
+    };
+  });
+}
+
 export function getPuttingTrend(
   rounds: Array<{ holes: HoleResult[] }>
 ): { averageLast20: number | null; averageLast5: number | null; delta: number | null } {

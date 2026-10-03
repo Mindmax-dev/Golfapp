@@ -17,6 +17,7 @@ import {
   effectiveHandicapIndex,
   getHoleAverages,
   getPuttAverages,
+  getPossibleBest,
   getPuttingTrend,
   HOLES,
   FALLBACK_HANDICAP_INDEX,
@@ -185,6 +186,21 @@ check("putts use last 5 as current trend", puttTrend.averageLast5, 1);
 check("putting delta marks improvement as negative", getPuttingTrend(trendRounds).delta, -1.5);
 check("under-par score uses birdie blue", getHoleTrendColor(5, 3, 4), HOLE_TREND_COLORS.underPar);
 check("ordinary improvement remains green", getHoleTrendColor(6, 5, 4), HOLE_TREND_COLORS.improved);
+
+console.log("\npossible best");
+const possibleBest = getPossibleBest([
+  { datum: new Date("2026-02-01T12:00:00Z"), holes: [{ holeNumber: 1, strokes: 3 }, { holeNumber: 6, strokes: 1 }] },
+  { datum: new Date("2026-03-01T12:00:00Z"), holes: [{ holeNumber: 1, strokes: 4 }] },
+  { datum: new Date("2026-01-01T12:00:00Z"), holes: [{ holeNumber: 1, strokes: 3 }] },
+]);
+check("uses the lowest score per hole", possibleBest[0].bestStrokes, 3);
+check(
+  "uses the first date on which the best score was reached",
+  possibleBest[0].firstAchievedAt?.toISOString(),
+  "2026-01-01T12:00:00.000Z"
+);
+check("keeps a hole-in-one as the possible best", possibleBest[5].bestStrokes, 1);
+check("returns null for holes without results", possibleBest[1].bestStrokes, null);
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log(`\n${passed} passed, ${failed} failed`);
