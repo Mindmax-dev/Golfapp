@@ -114,7 +114,7 @@ export default async function HomePage() {
             <div>
               <CardTitle>{"Schl\u00e4ge pro Loch"}</CardTitle>
               <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                Letzte 20 Runden im Vergleich zum aktuellen 5-Runden-Trend
+                {"Letzte 20 Runden im Vergleich zum gew\u00e4hlten aktuellen Zeitraum"}
               </p>
             </div>
           </CardHeader>

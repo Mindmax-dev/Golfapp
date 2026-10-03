@@ -21,6 +21,10 @@ import {
   HOLES,
   FALLBACK_HANDICAP_INDEX,
 } from "../src/lib/calculations";
+import {
+  getHoleTrendColor,
+  HOLE_TREND_COLORS,
+} from "../src/components/charts/hole-trend-legend";
 
 let failed = 0;
 let passed = 0;
@@ -174,10 +178,13 @@ const trendRounds = Array.from({ length: 20 }, (_, roundIndex) => ({
 const strokeTrend = getHoleAverages(trendRounds)[0];
 check("strokes use last 20 as baseline", strokeTrend.averageLast20, 5.5);
 check("strokes use last 5 as current trend", strokeTrend.averageLast5, 4);
+check("strokes use the latest round for last-round trend", strokeTrend.averageLast1, 4);
 const puttTrend = getPuttAverages(trendRounds)[0];
 check("putts use last 20 as baseline", puttTrend.averageLast20, 2.5);
 check("putts use last 5 as current trend", puttTrend.averageLast5, 1);
 check("putting delta marks improvement as negative", getPuttingTrend(trendRounds).delta, -1.5);
+check("under-par score uses birdie blue", getHoleTrendColor(5, 3, 4), HOLE_TREND_COLORS.underPar);
+check("ordinary improvement remains green", getHoleTrendColor(6, 5, 4), HOLE_TREND_COLORS.improved);
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log(`\n${passed} passed, ${failed} failed`);

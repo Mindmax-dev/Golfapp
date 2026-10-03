@@ -106,15 +106,18 @@ export function getHoleAverages(
   par: number;
   averageLast20: number;
   averageLast5: number;
+  averageLast1: number;
 }> {
   const last20 = rounds.slice(0, 20);
   const last5 = rounds.slice(0, 5);
+  const last1 = rounds.slice(0, 1);
   return HOLES.map((hole) => ({
     holeNumber: hole.number,
     name: hole.name,
     par: hole.par,
     averageLast20: holeMetricAverage(last20, hole.number, "strokes") ?? hole.par,
     averageLast5: holeMetricAverage(last5, hole.number, "strokes") ?? hole.par,
+    averageLast1: holeMetricAverage(last1, hole.number, "strokes") ?? hole.par,
   }));
 }
 
