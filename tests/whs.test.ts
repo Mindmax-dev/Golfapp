@@ -18,6 +18,7 @@ import {
   getHoleAverages,
   getPuttAverages,
   getPossibleBest,
+  getBirdieStats,
   getPuttingTrend,
   HOLES,
   FALLBACK_HANDICAP_INDEX,
@@ -201,6 +202,57 @@ check(
 );
 check("keeps a hole-in-one as the possible best", possibleBest[5].bestStrokes, 1);
 check("returns null for holes without results", possibleBest[1].bestStrokes, null);
+
+console.log("\nbirdie chance");
+const birdieRounds = [
+  {
+    datum: new Date("2026-02-01T12:00:00Z"),
+    holes: HOLES.map((hole) => ({
+      holeNumber: hole.number,
+      strokes: hole.number === 2 || hole.number === 4 ? hole.par - 1 : hole.par,
+    })),
+  },
+  {
+    datum: new Date("2026-01-01T12:00:00Z"),
+    holes: HOLES.map((hole) => ({
+      holeNumber: hole.number,
+      strokes: hole.number === 1 ? hole.par - 1 : hole.par,
+    })),
+  },
+];
+const birdieStats = getBirdieStats(birdieRounds);
+check("timeline starts with oldest round", birdieStats.timeline[0].roundNumber, 1);
+check("first-round chance is 1 of 1 rounds", birdieStats.timeline[0].chancePercent, 100);
+check("multiple birdies still count as one successful round", birdieStats.timeline[1].chancePercent, 100);
+check("per-hole chance uses the last 20 rounds", birdieStats.byHole[0].chancePercent, 50);
+check("round chance counts rounds with at least one birdie", birdieStats.last20RoundChance, {
+  roundsWithBirdie: 2,
+  roundsPlayed: 2,
+  chancePercent: 100,
+});
+
+const eagleOnlyStats = getBirdieStats([{
+  datum: new Date("2026-03-01T12:00:00Z"),
+  holes: [{ holeNumber: 3, strokes: 1 }],
+}]);
+check("eagle is not counted as a birdie", eagleOnlyStats.timeline[0].birdiesInRound, 0);
+
+const rollingBirdieRounds = Array.from({ length: 21 }, (_, index) => ({
+  datum: new Date(Date.UTC(2026, 0, 21 - index)),
+  holes: HOLES.map((hole) => ({
+    holeNumber: hole.number,
+    strokes: index === 20 && hole.number === 1 ? hole.par - 1 : hole.par,
+  })),
+}));
+const rollingBirdieStats = getBirdieStats(rollingBirdieRounds);
+check("round 20 still includes the oldest birdie round", rollingBirdieStats.timeline[19].chancePercent, 5);
+check("round 21 drops results older than 20 rounds", rollingBirdieStats.timeline[20].chancePercent, 0);
+check("rolling window never exceeds 20 rounds", rollingBirdieStats.timeline[20].windowRounds, 20);
+check(
+  "latest timeline point matches the last-20 summary",
+  rollingBirdieStats.timeline[20].chancePercent,
+  rollingBirdieStats.last20RoundChance.chancePercent
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log(`\n${passed} passed, ${failed} failed`);
