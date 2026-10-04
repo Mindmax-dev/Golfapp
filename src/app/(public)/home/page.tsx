@@ -7,6 +7,7 @@ import { RollingAverageChart } from "@/components/charts/rolling-average-chart";
 import { HoleAveragesChart } from "@/components/charts/hole-averages-chart";
 import { HolePuttsChart } from "@/components/charts/hole-putts-chart";
 import { PossibleBestChart } from "@/components/charts/possible-best-chart";
+import { BirdieChanceChart } from "@/components/charts/birdie-chance-chart";
 import { RecentRoundsTable } from "@/components/rounds/recent-rounds-table";
 
 export const metadata: Metadata = { title: "Statistiken" };
@@ -35,6 +36,11 @@ export default async function HomePage() {
     ...hole,
     firstAchievedAt: hole.firstAchievedAt ? formatDatum(hole.firstAchievedAt) : null,
     firstAchievedAtShort: hole.firstAchievedAt ? formatDatumKurz(hole.firstAchievedAt) : null,
+  }));
+
+  const birdieTimeline = stats.birdieStats.timeline.map((round) => ({
+    ...round,
+    datum: formatDatum(round.datum),
   }));
 
   return (
@@ -163,6 +169,26 @@ export default async function HomePage() {
           </CardHeader>
           <Suspense fallback={<div className="h-64 animate-pulse bg-[var(--color-muted)] rounded" />}>
             <HolePuttsChart data={stats.puttAverages} />
+          </Suspense>
+        </Card>
+      )}
+
+      {stats.totalRunden > 0 && (
+        <Card>
+          <CardHeader className="items-start">
+            <div>
+              <CardTitle>Birdie-Chance</CardTitle>
+              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                Birdie-Wahrscheinlichkeit im Zeitverlauf und pro Loch
+              </p>
+            </div>
+          </CardHeader>
+          <Suspense fallback={<div className="h-[390px] animate-pulse rounded bg-[var(--color-muted)]" />}>
+            <BirdieChanceChart
+              timeline={birdieTimeline}
+              byHole={stats.birdieStats.byHole}
+              last20RoundChance={stats.birdieStats.last20RoundChance}
+            />
           </Suspense>
         </Card>
       )}

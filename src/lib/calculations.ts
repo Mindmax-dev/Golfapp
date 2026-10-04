@@ -183,6 +183,85 @@ export function getPossibleBest(
   });
 }
 
+export function getBirdieStats(
+  rounds: Array<{ datum: Date; holes: HoleResult[] }>
+): {
+  timeline: Array<{
+    roundNumber: number;
+    datum: Date;
+    birdiesInRound: number;
+    windowRoundsWithBirdie: number;
+    windowRounds: number;
+    chancePercent: number;
+  }>;
+  byHole: Array<{
+    holeNumber: number;
+    name: string;
+    birdies: number;
+    roundsPlayed: number;
+    chancePercent: number;
+  }>;
+  last20RoundChance: {
+    roundsWithBirdie: number;
+    roundsPlayed: number;
+    chancePercent: number;
+  };
+} {
+  const isBirdie = (hole: HoleResult) => {
+    const config = HOLES.find((candidate) => candidate.number === hole.holeNumber);
+    return config != null && hole.strokes === config.par - 1;
+  };
+
+  const chronological = [...rounds].reverse();
+  const timeline = chronological.map((round, index) => {
+    const window = chronological.slice(Math.max(0, index - 19), index + 1);
+    const birdiesInRound = round.holes.filter(isBirdie).length;
+    const windowRoundsWithBirdie = window.filter((candidate) =>
+      candidate.holes.some(isBirdie)
+    ).length;
+
+    return {
+      roundNumber: index + 1,
+      datum: round.datum,
+      birdiesInRound,
+      windowRoundsWithBirdie,
+      windowRounds: window.length,
+      chancePercent: Math.round((windowRoundsWithBirdie / window.length) * 1000) / 10,
+    };
+  });
+
+  const last20 = rounds.slice(0, 20);
+  const byHole = HOLES.map((hole) => {
+    const results = last20.flatMap((round) =>
+      round.holes.filter((result) => result.holeNumber === hole.number)
+    );
+    const birdies = results.filter(isBirdie).length;
+
+    return {
+      holeNumber: hole.number,
+      name: hole.name,
+      birdies,
+      roundsPlayed: results.length,
+      chancePercent:
+        results.length === 0 ? 0 : Math.round((birdies / results.length) * 1000) / 10,
+    };
+  });
+  const roundsWithBirdie = last20.filter((round) => round.holes.some(isBirdie)).length;
+
+  return {
+    timeline,
+    byHole,
+    last20RoundChance: {
+      roundsWithBirdie,
+      roundsPlayed: last20.length,
+      chancePercent:
+        last20.length === 0
+          ? 0
+          : Math.round((roundsWithBirdie / last20.length) * 1000) / 10,
+    },
+  };
+}
+
 export function getPuttingTrend(
   rounds: Array<{ holes: HoleResult[] }>
 ): { averageLast20: number | null; averageLast5: number | null; delta: number | null } {

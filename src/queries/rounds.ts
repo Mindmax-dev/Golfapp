@@ -6,6 +6,7 @@ import {
   getHoleAverages,
   getPuttAverages,
   getPossibleBest,
+  getBirdieStats,
   getPuttingTrend,
   getRollingStats,
 } from "@/lib/calculations";
@@ -43,6 +44,7 @@ export async function getPublicStats() {
   const holeAverages = getHoleAverages(rounds);
   const puttAverages = getPuttAverages(rounds);
   const possibleBest = getPossibleBest(rounds);
+  const birdieStats = getBirdieStats(rounds);
   const puttingTrend = getPuttingTrend(rounds);
   const trendData = [...rounds].reverse().map((r) => ({
     datum: r.datum,
@@ -72,6 +74,7 @@ export async function getPublicStats() {
     holeAverages,
     puttAverages,
     possibleBest,
+    birdieStats,
     puttingTrend,
     trendData,
     rollingData,
