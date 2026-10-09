@@ -4,6 +4,7 @@ import { SWING_VIDEOS_BUCKET } from "@/lib/swing-videos";
 import { createClient } from "@/lib/supabase/server";
 import { formatDatum } from "@/lib/utils";
 import { getSwingVideos } from "@/queries/swings";
+import { parseSwingAnalysis } from "@/lib/swing-analysis";
 
 export const metadata: Metadata = { title: "Schwünge verwalten" };
 
@@ -20,6 +21,7 @@ export default async function AdminSwingsPage() {
     recordedAt: formatDatum(video.recordedAt),
     originalName: video.originalName,
     canEdit: true,
+    analysis: parseSwingAnalysis(video.analysisData),
   }));
 
   return (

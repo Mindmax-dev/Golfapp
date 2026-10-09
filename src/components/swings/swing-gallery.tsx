@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { registerSwingVideo } from "@/actions/swings";
+import { deleteSwingVideo, registerSwingVideo } from "@/actions/swings";
+import {
+  getContainedVideoBounds,
+  SwingDrawingShape,
+} from "@/components/swings/swing-drawing-shape";
+import type { SwingAnalysis } from "@/lib/swing-analysis";
 import { createClient } from "@/lib/supabase/client";
 import {
   ALLOWED_SWING_VIDEO_TYPES,
@@ -17,6 +22,7 @@ export type SwingVideoItem = {
   recordedAt: string;
   originalName: string;
   canEdit: boolean;
+  analysis: SwingAnalysis | null;
 };
 
 type SwingGalleryProps = {
@@ -24,13 +30,14 @@ type SwingGalleryProps = {
   manageUserId?: string | null;
 };
 
-function Icon({ name, className = "h-5 w-5" }: { name: "play" | "upload" | "edit" | "close" | "video"; className?: string }) {
+function Icon({ name, className = "h-5 w-5" }: { name: "play" | "upload" | "edit" | "close" | "video" | "trash"; className?: string }) {
   const paths = {
     play: <path d="m9 7 8 5-8 5V7Z" fill="currentColor" stroke="none" />,
     upload: <><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" /><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></>,
     edit: <><path d="m14.5 5.5 4 4" /><path d="M4 20h4l10.5-10.5a2.83 2.83 0 0 0-4-4L4 16v4Z" /></>,
     close: <><path d="m6 6 12 12M18 6 6 18" /></>,
     video: <><rect x="3" y="5" width="14" height="14" rx="2" /><path d="m17 10 4-2v8l-4-2" /></>,
+    trash: <><path d="M5 7h14" /><path d="M9 7V4h6v3M8 10v7m4-7v7m4-7v7M7 20h10l1-13H6l1 13Z" /></>,
   };
 
   return (
@@ -55,6 +62,164 @@ function extensionFor(file: File) {
   return "mp4";
 }
 
+function AnalyzedVideoPlayer({ video }: { video: SwingVideoItem }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [currentTime, setCurrentTime] = useState(video.analysis?.trimStart ?? 0);
+  const [playbackRange, setPlaybackRange] = useState({
+    start: video.analysis?.trimStart ?? 0,
+    end: video.analysis?.trimEnd ?? Number.POSITIVE_INFINITY,
+  });
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  const [videoAspect, setVideoAspect] = useState(9 / 16);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setStageSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    let animationFrame = 0;
+    const synchronizePlayback = () => {
+      const element = videoRef.current;
+      if (!element || element.paused) return;
+
+      if (element.currentTime >= playbackRange.end) {
+        element.pause();
+        element.currentTime = playbackRange.end;
+        setCurrentTime(playbackRange.end);
+        return;
+      }
+
+      setCurrentTime(element.currentTime);
+      animationFrame = requestAnimationFrame(synchronizePlayback);
+    };
+
+    animationFrame = requestAnimationFrame(synchronizePlayback);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [isPlaying, playbackRange.end]);
+
+  function handleMetadata() {
+    const element = videoRef.current;
+    if (!element || !Number.isFinite(element.duration)) return;
+    const start = Math.min(
+      Math.max(video.analysis?.trimStart ?? 0, 0),
+      Math.max(0, element.duration - 0.05)
+    );
+    const end = Math.min(
+      Math.max(video.analysis?.trimEnd ?? element.duration, start + 0.05),
+      element.duration
+    );
+    setPlaybackRange({ start, end });
+    setCurrentTime(start);
+    element.currentTime = start;
+    if (element.videoWidth > 0 && element.videoHeight > 0) {
+      setVideoAspect(element.videoWidth / element.videoHeight);
+    }
+  }
+
+  function handlePlay() {
+    const element = videoRef.current;
+    if (!element) return;
+    if (
+      element.currentTime < playbackRange.start ||
+      element.currentTime >= playbackRange.end - 0.02
+    ) {
+      element.currentTime = playbackRange.start;
+      setCurrentTime(playbackRange.start);
+    }
+    setIsPlaying(true);
+  }
+
+  function handleTimeUpdate() {
+    const element = videoRef.current;
+    if (!element) return;
+    if (!element.paused && element.currentTime >= playbackRange.end) {
+      element.pause();
+      element.currentTime = playbackRange.end;
+    }
+    setCurrentTime(element.currentTime);
+  }
+
+  function handlePause() {
+    const element = videoRef.current;
+    setIsPlaying(false);
+    if (element) setCurrentTime(element.currentTime);
+  }
+
+  function keepInsideTrim() {
+    const element = videoRef.current;
+    if (!element) return;
+    if (element.currentTime < playbackRange.start) {
+      element.currentTime = playbackRange.start;
+    } else if (element.currentTime > playbackRange.end) {
+      element.currentTime = playbackRange.end;
+    }
+  }
+
+  const visibleLayers = video.analysis?.layers.filter(
+    (layer) => currentTime >= layer.startTime && currentTime <= layer.endTime
+  ) ?? [];
+  const videoBounds = getContainedVideoBounds(
+    stageSize.width,
+    stageSize.height,
+    videoAspect
+  );
+
+  return (
+    <div
+      ref={stageRef}
+      className="relative max-h-[calc(100vh-5rem)] max-w-[min(100vw-1.5rem,32rem)] overflow-hidden rounded-xl bg-black shadow-2xl"
+      style={{ aspectRatio: videoAspect, height: "calc(100vh - 5rem)" }}
+    >
+      <video
+        ref={videoRef}
+        src={video.url}
+        controls
+        autoPlay
+        playsInline
+        className="h-full w-full bg-black object-contain"
+        onLoadedMetadata={handleMetadata}
+        onPlay={handlePlay}
+        onPause={handlePause}
+        onTimeUpdate={handleTimeUpdate}
+        onSeeking={keepInsideTrim}
+      />
+      {visibleLayers.length > 0 && (
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute"
+          style={{
+            left: videoBounds.left,
+            top: videoBounds.top,
+            width: videoBounds.width,
+            height: videoBounds.height,
+          }}
+          viewBox={`0 0 ${Math.max(videoBounds.width, 1)} ${Math.max(videoBounds.height, 1)}`}
+          preserveAspectRatio="none"
+        >
+          {visibleLayers.map((layer) => (
+            <SwingDrawingShape
+              key={layer.id}
+              layer={layer}
+              width={videoBounds.width}
+              height={videoBounds.height}
+            />
+          ))}
+        </svg>
+      )}
+    </div>
+  );
+}
+
 export function SwingGallery({ videos, manageUserId }: SwingGalleryProps) {
   const router = useRouter();
   const fileInputId = useId();
@@ -65,13 +230,18 @@ export function SwingGallery({ videos, manageUserId }: SwingGalleryProps) {
   const [recordedAt, setRecordedAt] = useState(localDateValue);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingVideo, setDeletingVideo] = useState<SwingVideoItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!playingVideo && !uploadOpen) return;
+    if (!playingVideo && !uploadOpen && !deletingVideo) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !uploading) {
+      if (event.key === "Escape" && !uploading && !deleting) {
         setPlayingVideo(null);
         setUploadOpen(false);
+        setDeletingVideo(null);
+        setDeleteError(null);
       }
     };
     document.addEventListener("keydown", onKeyDown);
@@ -81,7 +251,7 @@ export function SwingGallery({ videos, manageUserId }: SwingGalleryProps) {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [playingVideo, uploadOpen, uploading]);
+  }, [playingVideo, uploadOpen, deletingVideo, uploading, deleting]);
 
   function closeUpload() {
     if (uploading) return;
@@ -151,6 +321,42 @@ export function SwingGallery({ videos, manageUserId }: SwingGalleryProps) {
     router.refresh();
   }
 
+  function askToDelete(video: SwingVideoItem) {
+    setDeleteError(null);
+    setDeletingVideo(video);
+  }
+
+  function closeDelete() {
+    if (deleting) return;
+    setDeletingVideo(null);
+    setDeleteError(null);
+  }
+
+  async function handleDelete() {
+    if (!deletingVideo || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+
+    let result: Awaited<ReturnType<typeof deleteSwingVideo>>;
+    try {
+      result = await deleteSwingVideo(deletingVideo.id);
+    } catch {
+      setDeleteError("Das Video konnte nicht gelöscht werden. Bitte versuche es erneut.");
+      setDeleting(false);
+      return;
+    }
+    if (!result.success) {
+      setDeleteError(result.error);
+      setDeleting(false);
+      return;
+    }
+
+    if (playingVideo?.id === deletingVideo.id) setPlayingVideo(null);
+    setDeletingVideo(null);
+    setDeleting(false);
+    router.refresh();
+  }
+
   return (
     <>
       <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-7 lg:grid-cols-4">
@@ -177,7 +383,7 @@ export function SwingGallery({ videos, manageUserId }: SwingGalleryProps) {
               className="group relative block aspect-[9/16] w-full overflow-hidden rounded-xl bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]"
             >
               <video
-                src={`${video.url}#t=0.001`}
+                src={`${video.url}#t=${Math.max(video.analysis?.trimStart ?? 0.001, 0.001)}`}
                 preload="metadata"
                 muted
                 playsInline
@@ -191,13 +397,24 @@ export function SwingGallery({ videos, manageUserId }: SwingGalleryProps) {
             <div className="flex items-center justify-between gap-2 px-0.5 pt-2.5">
               <time className="truncate text-sm font-medium text-[var(--color-foreground)]">{video.recordedAt}</time>
               {video.canEdit && (
-                <Link
-                  href={`/admin/schwuenge/${video.id}/analyse`}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-                >
-                  <Icon name="edit" className="h-3.5 w-3.5" />
-                  Bearbeiten
-                </Link>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Link
+                    href={`/admin/schwuenge/${video.id}/analyse`}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                  >
+                    <Icon name="edit" className="h-3.5 w-3.5" />
+                    Bearbeiten
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => askToDelete(video)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-muted-foreground)] hover:bg-[var(--color-destructive)]/10 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-destructive)]"
+                    aria-label={`Schwung vom ${video.recordedAt} löschen`}
+                    title="Löschen"
+                  >
+                    <Icon name="trash" className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               )}
             </div>
           </article>
@@ -224,14 +441,63 @@ export function SwingGallery({ videos, manageUserId }: SwingGalleryProps) {
             >
               <Icon name="close" />
             </button>
-            <video
-              src={playingVideo.url}
-              controls
-              autoPlay
-              playsInline
-              className="max-h-[calc(100vh-5rem)] max-w-[min(100vw-1.5rem,32rem)] rounded-xl bg-black object-contain shadow-2xl"
-            />
+            <AnalyzedVideoPlayer key={playingVideo.id} video={playingVideo} />
             <p className="mt-3 text-sm font-medium text-white">{playingVideo.recordedAt}</p>
+          </div>
+        </div>
+      )}
+
+      {deletingVideo && manageUserId && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-swing-title"
+          aria-describedby="delete-swing-description"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeDelete();
+          }}
+        >
+          <div className="w-full max-w-md rounded-t-2xl border border-[var(--color-card-border)] bg-[var(--color-card)] p-5 shadow-2xl sm:rounded-2xl sm:p-6">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-destructive)]/10 text-red-400">
+              <Icon name="trash" />
+            </div>
+            <h2 id="delete-swing-title" className="mt-4 text-lg font-semibold text-[var(--color-foreground)]">
+              Video löschen?
+            </h2>
+            <p id="delete-swing-description" className="mt-2 text-sm leading-6 text-[var(--color-muted-foreground)]">
+              Der Schwung vom {deletingVideo.recordedAt}, das Originalvideo und die gespeicherte Analyse werden dauerhaft entfernt.
+            </p>
+            <p className="mt-2 truncate text-xs text-[var(--color-muted-foreground)]/75">
+              {deletingVideo.originalName}
+            </p>
+
+            {deleteError && (
+              <p role="alert" className="mt-4 rounded-md border border-[var(--color-destructive)]/40 bg-[var(--color-destructive)]/10 px-3 py-2 text-sm text-red-300">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeDelete}
+                disabled={deleting}
+                autoFocus
+                className="rounded-md px-4 py-2 text-sm font-medium text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)] disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="inline-flex min-w-32 items-center justify-center gap-2 rounded-md bg-[var(--color-destructive)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deleting && <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />}
+                {deleting ? "Wird gelöscht" : "Endgültig löschen"}
+              </button>
+            </div>
           </div>
         </div>
       )}
