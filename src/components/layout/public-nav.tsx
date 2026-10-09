@@ -25,6 +25,12 @@ export function PublicNav() {
             Bag
           </Link>
           <Link
+            href="/schwuenge"
+            className="text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
+          >
+            Schwünge
+          </Link>
+          <Link
             href="/login"
             className="text-sm text-[var(--color-primary)] hover:text-[var(--color-primary-hover)] transition-colors"
           >

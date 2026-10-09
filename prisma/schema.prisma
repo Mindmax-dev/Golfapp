@@ -85,3 +85,19 @@ model OfficialHandicapEntry {
   @@index([userId, datum])
   @@map("official_handicap_entries")
 }
+
+model SwingVideo {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  storagePath  String   @unique @map("storage_path")
+  recordedAt   DateTime @map("recorded_at") @db.Date
+  originalName String   @map("original_name")
+  mimeType     String   @map("mime_type")
+  sizeBytes    BigInt   @map("size_bytes")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, recordedAt(sort: Desc)])
+  @@index([recordedAt(sort: Desc), createdAt(sort: Desc)])
+  @@map("swing_videos")
+}
