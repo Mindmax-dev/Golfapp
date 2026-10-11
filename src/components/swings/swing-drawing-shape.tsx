@@ -84,6 +84,73 @@ export function SwingDrawingShape({
     );
   }
 
+  if (layer.kind === "angle") {
+    const vertex = coordinates[0];
+    const firstEnd = coordinates[1];
+    const secondEnd = coordinates[2];
+
+    if (!secondEnd) {
+      return (
+        <line
+          x1={vertex.x}
+          y1={vertex.y}
+          x2={firstEnd.x}
+          y2={firstEnd.y}
+          {...common}
+        />
+      );
+    }
+
+    const firstAngle = Math.atan2(firstEnd.y - vertex.y, firstEnd.x - vertex.x);
+    const secondAngle = Math.atan2(secondEnd.y - vertex.y, secondEnd.x - vertex.x);
+    let angleDelta = secondAngle - firstAngle;
+    while (angleDelta <= -Math.PI) angleDelta += Math.PI * 2;
+    while (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+
+    const firstLength = Math.hypot(firstEnd.x - vertex.x, firstEnd.y - vertex.y);
+    const secondLength = Math.hypot(secondEnd.x - vertex.x, secondEnd.y - vertex.y);
+    const arcRadius = Math.min(Math.max(Math.min(firstLength, secondLength) * 0.28, 18), 48);
+    const arcStart = {
+      x: vertex.x + Math.cos(firstAngle) * arcRadius,
+      y: vertex.y + Math.sin(firstAngle) * arcRadius,
+    };
+    const arcEnd = {
+      x: vertex.x + Math.cos(firstAngle + angleDelta) * arcRadius,
+      y: vertex.y + Math.sin(firstAngle + angleDelta) * arcRadius,
+    };
+    const labelAngle = firstAngle + angleDelta / 2;
+    const labelRadius = arcRadius + 15;
+    const label = {
+      x: vertex.x + Math.cos(labelAngle) * labelRadius,
+      y: vertex.y + Math.sin(labelAngle) * labelRadius,
+    };
+    const degrees = Math.round(Math.abs(angleDelta) * 180 / Math.PI);
+
+    return (
+      <g {...common}>
+        <line x1={vertex.x} y1={vertex.y} x2={firstEnd.x} y2={firstEnd.y} />
+        <line x1={vertex.x} y1={vertex.y} x2={secondEnd.x} y2={secondEnd.y} />
+        <path
+          d={`M ${arcStart.x} ${arcStart.y} A ${arcRadius} ${arcRadius} 0 0 ${angleDelta >= 0 ? 1 : 0} ${arcEnd.x} ${arcEnd.y}`}
+        />
+        <text
+          x={label.x}
+          y={label.y}
+          fill={layer.color}
+          stroke="rgba(0,0,0,.8)"
+          strokeWidth={3}
+          paintOrder="stroke"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={14}
+          fontWeight={700}
+        >
+          {degrees}°
+        </text>
+      </g>
+    );
+  }
+
   return (
     <polyline
       points={coordinates.map((point) => `${point.x},${point.y}`).join(" ")}

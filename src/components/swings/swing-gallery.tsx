@@ -8,6 +8,7 @@ import {
   getContainedVideoBounds,
   SwingDrawingShape,
 } from "@/components/swings/swing-drawing-shape";
+import { SwingClubPathShape } from "@/components/swings/swing-club-path-shape";
 import type { SwingAnalysis } from "@/lib/swing-analysis";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -168,6 +169,9 @@ function AnalyzedVideoPlayer({ video }: { video: SwingVideoItem }) {
   const visibleLayers = video.analysis?.layers.filter(
     (layer) => currentTime >= layer.startTime && currentTime <= layer.endTime
   ) ?? [];
+  const visiblePaths = video.analysis?.clubPaths.filter(
+    (path) => currentTime >= path.startTime && currentTime <= path.endTime
+  ) ?? [];
   const videoBounds = getContainedVideoBounds(
     stageSize.width,
     stageSize.height,
@@ -193,7 +197,7 @@ function AnalyzedVideoPlayer({ video }: { video: SwingVideoItem }) {
         onTimeUpdate={handleTimeUpdate}
         onSeeking={keepInsideTrim}
       />
-      {visibleLayers.length > 0 && (
+      {(visibleLayers.length > 0 || visiblePaths.length > 0) && (
         <svg
           aria-hidden="true"
           className="pointer-events-none absolute"
@@ -210,6 +214,14 @@ function AnalyzedVideoPlayer({ video }: { video: SwingVideoItem }) {
             <SwingDrawingShape
               key={layer.id}
               layer={layer}
+              width={videoBounds.width}
+              height={videoBounds.height}
+            />
+          ))}
+          {visiblePaths.map((path) => (
+            <SwingClubPathShape
+              key={path.id}
+              path={path}
               width={videoBounds.width}
               height={videoBounds.height}
             />

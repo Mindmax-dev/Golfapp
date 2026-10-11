@@ -48,10 +48,13 @@ src/
     bag/              # club-form, delete-club-button
     charts/           # performance-trend-chart, hole-averages-chart
     profile/          # profile-form, recalc-button
+    swings/           # swing gallery, video analysis editor, drawing and clubhead-path overlays
   generated/
     prisma/client.ts  # Generated Prisma client — import PrismaClient and all model types from here
   lib/
     calculations.ts   # Golf stat pure functions — HOLES (par + stroke indexes), WHS calcs (course handicap, NDB cap, stableford net, differential, internal HI), averages
+    swing-analysis.ts # persisted trim, drawing, and clubhead-path data + validation
+    clubhead-path.ts  # smooth clubhead trace generated from manually placed keyframes
     utils.ts          # cn(), formatDatum(), formatDatumKurz(), signDisplay()
     prisma.ts         # Singleton PrismaClient (PrismaPg adapter)
     supabase/

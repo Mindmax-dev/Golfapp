@@ -13,31 +13,47 @@ import {
   getContainedVideoBounds,
   SwingDrawingShape,
 } from "@/components/swings/swing-drawing-shape";
+import { SwingClubPathShape } from "@/components/swings/swing-club-path-shape";
+import {
+  createClubheadPath,
+  estimateTransitionTime,
+} from "@/lib/clubhead-path";
 import type {
   SwingAnalysis,
+  SwingClubPath,
   SwingDrawingKind,
   SwingDrawingLayer,
   SwingPoint,
+  SwingTrackAnchor,
 } from "@/lib/swing-analysis";
 import { cn } from "@/lib/utils";
 
-type EditorTool = "select" | SwingDrawingKind;
+type EditorTool = "select" | "track" | SwingDrawingKind;
 type SaveState = "idle" | "saving" | "saved" | "error";
 type DragMode = "start" | "end" | "move";
-type CanvasDragMode = "move" | "line-start" | "line-end";
+type CanvasDragMode =
+  | "move"
+  | "line-start"
+  | "line-end"
+  | "angle-vertex"
+  | "angle-first"
+  | "angle-second";
 
 const COLORS = ["#f8fafc", "#facc15", "#38bdf8", "#4ade80", "#fb7185"];
 
 const TOOL_LABELS: Record<EditorTool, string> = {
   select: "Auswahl",
+  track: "Schwungspur markieren",
   line: "Linie",
   circle: "Kreis",
+  angle: "Winkelmesser",
   pen: "Stift",
 };
 
 const LAYER_LABELS: Record<SwingDrawingKind, string> = {
   line: "Linie",
   circle: "Kreis",
+  angle: "Winkelmesser",
   pen: "Freihand",
 };
 
@@ -55,8 +71,10 @@ function formatTime(value: number) {
 function EditorIcon({ name, className = "h-5 w-5" }: { name: EditorTool | "play" | "pause" | "back" | "forward" | "trash" | "save"; className?: string }) {
   const paths: Record<string, ReactNode> = {
     select: <path d="m5 3 6.5 16 2.1-6.2L20 10.5 5 3Z" />,
+    track: <><circle cx="12" cy="12" r="4" /><path d="M12 3v3m0 12v3M3 12h3m12 0h3" /></>,
     line: <path d="M5 19 19 5" />,
     circle: <circle cx="12" cy="12" r="7" />,
+    angle: <><path d="M5 18 10 7l9 11" /><path d="M8.2 14.1a5 5 0 0 1 5.8 0" /></>,
     pen: <><path d="m4 20 4.5-1 10-10a2.8 2.8 0 0 0-4-4l-10 10L4 20Z" /><path d="m13 7 4 4" /></>,
     play: <path d="m9 7 8 5-8 5V7Z" fill="currentColor" stroke="none" />,
     pause: <><path d="M9 7v10" /><path d="M15 7v10" /></>,
@@ -152,6 +170,59 @@ function EditableLayerControls({
     );
   }
 
+  if (layer.kind === "angle" && layer.points.length >= 3) {
+    const third = {
+      x: layer.points[2].x * width,
+      y: layer.points[2].y * height,
+    };
+    const handles = [
+      { point: first, mode: "angle-vertex" as const },
+      { point: second, mode: "angle-first" as const },
+      { point: third, mode: "angle-second" as const },
+    ];
+    return (
+      <g>
+        <line
+          x1={first.x}
+          y1={first.y}
+          x2={second.x}
+          y2={second.y}
+          stroke="transparent"
+          strokeWidth={20}
+          strokeLinecap="round"
+          pointerEvents="stroke"
+          className="cursor-move"
+          onPointerDown={(event) => onPointerDown("move", event)}
+        />
+        <line
+          x1={first.x}
+          y1={first.y}
+          x2={third.x}
+          y2={third.y}
+          stroke="transparent"
+          strokeWidth={20}
+          strokeLinecap="round"
+          pointerEvents="stroke"
+          className="cursor-move"
+          onPointerDown={(event) => onPointerDown("move", event)}
+        />
+        {selected && handles.map(({ point, mode }) => (
+          <circle
+            key={mode}
+            cx={point.x}
+            cy={point.y}
+            r={7}
+            fill="white"
+            stroke={layer.color}
+            strokeWidth={3}
+            className="cursor-grab active:cursor-grabbing"
+            onPointerDown={(event) => onPointerDown(mode, event)}
+          />
+        ))}
+      </g>
+    );
+  }
+
   const radius = Math.hypot(second.x - first.x, second.y - first.y);
   return (
     <g>
@@ -190,6 +261,7 @@ function RangeTrack({
   currentTime,
   selected,
   videoTrack,
+  readOnly,
   onChange,
   onSelect,
 }: {
@@ -200,6 +272,7 @@ function RangeTrack({
   currentTime: number;
   selected?: boolean;
   videoTrack?: boolean;
+  readOnly?: boolean;
   onChange: (start: number, end: number) => void;
   onSelect?: () => void;
 }) {
@@ -271,22 +344,29 @@ function RangeTrack({
         <div className="absolute inset-0 opacity-35 [background-image:repeating-linear-gradient(90deg,transparent_0,transparent_22px,rgba(255,255,255,.13)_23px,rgba(255,255,255,.13)_24px)]" />
       )}
       <div
-        className="absolute bottom-1 top-1 cursor-grab rounded active:cursor-grabbing"
-        style={{ left: `${left}%`, width: `${width}%`, backgroundColor: color }}
-        onPointerDown={(event) => beginDrag("move", event)}
+        className={cn(
+          "absolute bottom-1 top-1 rounded",
+          readOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
+        )}
+        style={{ left: `${left}%`, width: `${width}%`, background: color }}
+        onPointerDown={readOnly ? undefined : (event) => beginDrag("move", event)}
       >
-        <button
-          type="button"
-          aria-label="Startpunkt verschieben"
-          className="absolute inset-y-0 left-0 w-3 cursor-ew-resize rounded-l bg-white/70 hover:bg-white"
-          onPointerDown={(event) => beginDrag("start", event)}
-        />
-        <button
-          type="button"
-          aria-label="Endpunkt verschieben"
-          className="absolute inset-y-0 right-0 w-3 cursor-ew-resize rounded-r bg-white/70 hover:bg-white"
-          onPointerDown={(event) => beginDrag("end", event)}
-        />
+        {!readOnly && (
+          <>
+            <button
+              type="button"
+              aria-label="Startpunkt verschieben"
+              className="absolute inset-y-0 left-0 w-3 cursor-ew-resize rounded-l bg-white/70 hover:bg-white"
+              onPointerDown={(event) => beginDrag("start", event)}
+            />
+            <button
+              type="button"
+              aria-label="Endpunkt verschieben"
+              className="absolute inset-y-0 right-0 w-3 cursor-ew-resize rounded-r bg-white/70 hover:bg-white"
+              onPointerDown={(event) => beginDrag("end", event)}
+            />
+          </>
+        )}
       </div>
       <span
         className="pointer-events-none absolute inset-y-0 z-20 w-px bg-white shadow-[0_0_5px_rgba(255,255,255,.8)]"
@@ -321,10 +401,17 @@ export function SwingAnalysisEditor({
   const [trimEnd, setTrimEnd] = useState(initialAnalysis?.trimEnd ?? 0);
   const [currentTime, setCurrentTime] = useState(initialAnalysis?.trimStart ?? 0);
   const [layers, setLayers] = useState<SwingDrawingLayer[]>(initialAnalysis?.layers ?? []);
+  const [clubPaths, setClubPaths] = useState<SwingClubPath[]>(initialAnalysis?.clubPaths ?? []);
   const [selectedTool, setSelectedTool] = useState<EditorTool>("select");
   const [selectedColor, setSelectedColor] = useState(COLORS[1]);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [selectedPathId, setSelectedPathId] = useState<string | null>(null);
+  const [replacingPathId, setReplacingPathId] = useState<string | null>(null);
   const [draft, setDraft] = useState<SwingDrawingLayer | null>(null);
+  const [angleDraft, setAngleDraft] = useState<SwingDrawingLayer | null>(null);
+  const [angleHoverPoint, setAngleHoverPoint] = useState<SwingPoint | null>(null);
+  const [trackingAnchors, setTrackingAnchors] = useState<SwingTrackAnchor[]>([]);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const [videoAspect, setVideoAspect] = useState(9 / 16);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -333,10 +420,26 @@ export function SwingAnalysisEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const selectedLayer = layers.find((layer) => layer.id === selectedLayerId) ?? null;
+  const selectedPath = clubPaths.find((path) => path.id === selectedPathId) ?? null;
   const visibleLayers = useMemo(
     () => layers.filter((layer) => currentTime >= layer.startTime && currentTime <= layer.endTime),
     [currentTime, layers]
   );
+  const visiblePaths = useMemo(
+    () => clubPaths.filter((path) => (
+      path.id !== replacingPathId &&
+      currentTime >= path.startTime &&
+      currentTime <= path.endTime
+    )),
+    [clubPaths, currentTime, replacingPathId]
+  );
+  const anglePreview = useMemo(() => {
+    if (!angleDraft || !angleHoverPoint || angleDraft.points.length >= 3) return angleDraft;
+    return {
+      ...angleDraft,
+      points: [...angleDraft.points, angleHoverPoint],
+    };
+  }, [angleDraft, angleHoverPoint]);
   const videoBounds = getContainedVideoBounds(
     stageSize.width,
     stageSize.height,
@@ -361,9 +464,17 @@ export function SwingAnalysisEditor({
         event.preventDefault();
         togglePlayback();
       }
-      if ((event.key === "Delete" || event.key === "Backspace") && selectedLayerId) {
+      if (event.key === "Escape" && angleDraft) {
+        setAngleDraft(null);
+        setAngleHoverPoint(null);
+      }
+      if (
+        (event.key === "Delete" || event.key === "Backspace") &&
+        (selectedLayerId || selectedPathId)
+      ) {
         event.preventDefault();
-        deleteSelectedLayer();
+        if (selectedPathId) deleteSelectedPath();
+        else deleteSelectedLayer();
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -395,6 +506,20 @@ export function SwingAnalysisEditor({
       startTime: clamp(layer.startTime, 0, Math.max(0, nextDuration - 0.1)),
       endTime: clamp(layer.endTime, Math.min(nextDuration, layer.startTime + 0.1), nextDuration),
     })));
+    setClubPaths((current) => current
+      .filter((path) => path.startTime < nextDuration)
+      .map((path) => ({
+        ...path,
+        endTime: Math.min(path.endTime, nextDuration),
+        transitionTime: clamp(
+          path.transitionTime,
+          path.startTime,
+          Math.min(path.endTime, nextDuration)
+        ),
+        anchors: path.anchors.filter((anchor) => anchor.time <= nextDuration),
+        points: path.points.filter((point) => point.time <= nextDuration),
+      }))
+      .filter((path) => path.points.length >= 3 && path.startTime < path.endTime));
   }
 
   function seekTo(nextTime: number) {
@@ -465,6 +590,7 @@ export function SwingAnalysisEditor({
     event.stopPropagation();
     canvas.setPointerCapture(event.pointerId);
     setSelectedLayerId(layer.id);
+    setSelectedPathId(null);
     setSelectedTool("select");
     layerDragRef.current = {
       pointerId: event.pointerId,
@@ -483,8 +609,16 @@ export function SwingAnalysisEditor({
     const point = pointFromEvent(event);
     let nextPoints: SwingPoint[];
 
-    if (drag.mode === "line-start" || drag.mode === "line-end") {
-      const pointIndex = drag.mode === "line-start" ? 0 : 1;
+    const pointIndexes: Partial<Record<CanvasDragMode, number>> = {
+      "line-start": 0,
+      "line-end": 1,
+      "angle-vertex": 0,
+      "angle-first": 1,
+      "angle-second": 2,
+    };
+    const pointIndex = pointIndexes[drag.mode];
+
+    if (pointIndex !== undefined) {
       nextPoints = drag.points.map((original, index) => (
         index === pointIndex ? point : { ...original }
       ));
@@ -533,16 +667,140 @@ export function SwingAnalysisEditor({
     return { start, end };
   }
 
+  function addTrackingAnchor(point: SwingPoint) {
+    const video = videoRef.current;
+    if (!video || duration <= 0) return;
+    video.pause();
+    const anchor: SwingTrackAnchor = { ...point, time: currentTime };
+    setTrackingAnchors((current) => {
+      const matchingIndex = current.findIndex(
+        (item) => Math.abs(item.time - anchor.time) < 0.025
+      );
+      const next = matchingIndex >= 0
+        ? current.map((item, index) => (index === matchingIndex ? anchor : item))
+        : [...current, anchor];
+      return next.sort((first, second) => first.time - second.time).slice(0, 30);
+    });
+    setTrackingError(null);
+  }
+
+  function createPathFromAnchors() {
+    const video = videoRef.current;
+    const anchors = [...trackingAnchors].sort((first, second) => first.time - second.time);
+    if (!video || duration <= 0 || anchors.length < 2) {
+      setTrackingError("Markiere den Schlägerkopf in mindestens zwei verschiedenen Bildern.");
+      return;
+    }
+    if (anchors.some((anchor, index) => index > 0 && anchor.time - anchors[index - 1].time < 0.08)) {
+      setTrackingError("Zwischen zwei Markierungen müssen mindestens einige Videoframes liegen.");
+      return;
+    }
+
+    video.pause();
+    setSelectedLayerId(null);
+    setSelectedPathId(null);
+    setTrackingError(null);
+    const points = createClubheadPath(anchors);
+    if (points.length > 4_000) {
+      setTrackingError("Der markierte Videobereich ist für einen einzelnen Pfad zu lang.");
+      return;
+    }
+    const path: SwingClubPath = {
+      id: replacingPathId ?? crypto.randomUUID(),
+      startTime: anchors[0].time,
+      endTime: anchors[anchors.length - 1].time,
+      transitionTime: estimateTransitionTime(points),
+      anchors,
+      interpolatedSegments: [],
+      points,
+    };
+    setClubPaths((current) => replacingPathId
+      ? current.map((item) => (item.id === replacingPathId ? path : item))
+      : [...current, path]
+    );
+    setReplacingPathId(null);
+    setSelectedPathId(path.id);
+    setSelectedTool("select");
+    setTrackingAnchors([]);
+    markChanged();
+  }
+
+  function reusePathAnchors(path: SwingClubPath) {
+    if (path.anchors.length < 2) return;
+    videoRef.current?.pause();
+    setTrackingAnchors(path.anchors.map((anchor) => ({ ...anchor })));
+    setReplacingPathId(path.id);
+    setSelectedPathId(null);
+    setSelectedLayerId(null);
+    setSelectedTool("track");
+    setTrackingError(null);
+    seekTo(path.anchors[0].time);
+  }
+
   function beginDrawing(event: ReactPointerEvent<SVGSVGElement>) {
     if (selectedTool === "select") {
       setSelectedLayerId(null);
+      setSelectedPathId(null);
       return;
     }
     if (duration <= 0) return;
+    if (selectedTool === "track") {
+      addTrackingAnchor(pointFromEvent(event));
+      return;
+    }
+    if (selectedTool === "angle") {
+      const point = pointFromEvent(event);
+      if (!angleDraft) {
+        const range = drawingRange();
+        videoRef.current?.pause();
+        setSelectedLayerId(null);
+        setSelectedPathId(null);
+        setAngleDraft({
+          id: "angle-draft",
+          kind: "angle",
+          color: selectedColor,
+          startTime: range.start,
+          endTime: range.end,
+          points: [point],
+        });
+        setAngleHoverPoint(point);
+        return;
+      }
+      if (angleDraft.points.length === 1) {
+        setAngleDraft({ ...angleDraft, points: [...angleDraft.points, point] });
+        setAngleHoverPoint(point);
+        return;
+      }
+
+      const vertex = angleDraft.points[0];
+      const firstEnd = angleDraft.points[1];
+      const firstLength = Math.hypot(
+        (firstEnd.x - vertex.x) * videoBounds.width,
+        (firstEnd.y - vertex.y) * videoBounds.height
+      );
+      const secondLength = Math.hypot(
+        (point.x - vertex.x) * videoBounds.width,
+        (point.y - vertex.y) * videoBounds.height
+      );
+      if (firstLength < 4 || secondLength < 4) return;
+
+      const nextLayer: SwingDrawingLayer = {
+        ...angleDraft,
+        id: crypto.randomUUID(),
+        points: [vertex, firstEnd, point],
+      };
+      setLayers((current) => [...current, nextLayer]);
+      setSelectedLayerId(nextLayer.id);
+      setAngleDraft(null);
+      setAngleHoverPoint(null);
+      markChanged();
+      return;
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
     const point = pointFromEvent(event);
     const range = drawingRange();
     setSelectedLayerId(null);
+    setSelectedPathId(null);
     setDraft({
       id: "draft",
       kind: selectedTool,
@@ -588,6 +846,10 @@ export function SwingAnalysisEditor({
   }
 
   function handleCanvasPointerMove(event: ReactPointerEvent<SVGSVGElement>) {
+    if (selectedTool === "angle" && angleDraft) {
+      setAngleHoverPoint(pointFromEvent(event));
+      return;
+    }
     if (!continueLayerDrag(event)) continueDrawing(event);
   }
 
@@ -608,6 +870,7 @@ export function SwingAnalysisEditor({
 
   function selectLayer(layer: SwingDrawingLayer) {
     setSelectedLayerId(layer.id);
+    setSelectedPathId(null);
     setSelectedTool("select");
     if (currentTime < layer.startTime || currentTime > layer.endTime) {
       seekTo(layer.startTime);
@@ -618,6 +881,29 @@ export function SwingAnalysisEditor({
     if (!selectedLayerId) return;
     setLayers((current) => current.filter((layer) => layer.id !== selectedLayerId));
     setSelectedLayerId(null);
+    markChanged();
+  }
+
+  function selectPath(path: SwingClubPath) {
+    setSelectedPathId(path.id);
+    setSelectedLayerId(null);
+    setSelectedTool("select");
+    if (currentTime < path.startTime || currentTime > path.endTime) {
+      seekTo(path.startTime);
+    }
+  }
+
+  function updatePath(id: string, changes: Partial<SwingClubPath>) {
+    setClubPaths((current) => current.map((path) => (
+      path.id === id ? { ...path, ...changes } : path
+    )));
+    markChanged();
+  }
+
+  function deleteSelectedPath() {
+    if (!selectedPathId) return;
+    setClubPaths((current) => current.filter((path) => path.id !== selectedPathId));
+    setSelectedPathId(null);
     markChanged();
   }
 
@@ -642,6 +928,7 @@ export function SwingAnalysisEditor({
       trimStart,
       trimEnd,
       layers,
+      clubPaths,
     };
     const result = await saveSwingAnalysis(videoId, analysis);
     if (!result.success) {
@@ -663,7 +950,8 @@ export function SwingAnalysisEditor({
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-white">Schwung-Analyse</p>
             <p className="text-xs text-white/45">
-              {layers.length} {layers.length === 1 ? "Zeichenebene" : "Zeichenebenen"}
+              {layers.length + clubPaths.length}{" "}
+              {layers.length + clubPaths.length === 1 ? "Analyseebene" : "Analyseebenen"}
             </p>
           </div>
         </div>
@@ -692,11 +980,25 @@ export function SwingAnalysisEditor({
             <button
               key={tool}
               type="button"
-              onClick={() => setSelectedTool(tool)}
+              onClick={() => {
+                setSelectedTool(tool);
+                setTrackingError(null);
+                if (tool !== "angle") {
+                  setAngleDraft(null);
+                  setAngleHoverPoint(null);
+                }
+                if (tool === "track" || tool === "angle") {
+                  setSelectedLayerId(null);
+                  setSelectedPathId(null);
+                } else if (replacingPathId) {
+                  setReplacingPathId(null);
+                  setTrackingAnchors([]);
+                }
+              }}
               title={TOOL_LABELS[tool]}
               aria-label={TOOL_LABELS[tool]}
               className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]",
+                "flex h-11 w-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-35",
                 selectedTool === tool
                   ? "border-[var(--color-primary)] bg-[var(--color-primary)]/15 text-[var(--color-primary)]"
                   : "border-transparent text-white/55 hover:border-white/10 hover:bg-white/5 hover:text-white"
@@ -766,9 +1068,26 @@ export function SwingAnalysisEditor({
                   selected={layer.id === selectedLayerId}
                 />
               ))}
+              {visiblePaths.map((path) => (
+                <SwingClubPathShape
+                  key={path.id}
+                  path={path}
+                  width={videoBounds.width}
+                  height={videoBounds.height}
+                  selected={path.id === selectedPathId}
+                />
+              ))}
               {draft && (
                 <SwingDrawingShape
                   layer={draft}
+                  width={videoBounds.width}
+                  height={videoBounds.height}
+                  selected
+                />
+              )}
+              {anglePreview && (
+                <SwingDrawingShape
+                  layer={anglePreview}
                   width={videoBounds.width}
                   height={videoBounds.height}
                   selected
@@ -784,6 +1103,45 @@ export function SwingAnalysisEditor({
                   onPointerDown={(mode, event) => beginLayerDrag(layer, mode, event)}
                 />
               ))}
+              {selectedTool === "track" && trackingAnchors.length > 0 && (
+                <g className="pointer-events-none">
+                  {trackingAnchors.length > 1 && (
+                    <polyline
+                      points={trackingAnchors.map((anchor) => (
+                        `${anchor.x * videoBounds.width},${anchor.y * videoBounds.height}`
+                      )).join(" ")}
+                      fill="none"
+                      stroke="#facc15"
+                      strokeWidth={2}
+                      strokeDasharray="5 6"
+                      opacity={0.6}
+                    />
+                  )}
+                  {trackingAnchors.map((anchor, index) => (
+                    <g key={`${anchor.time}-${index}`}>
+                      <circle
+                        cx={anchor.x * videoBounds.width}
+                        cy={anchor.y * videoBounds.height}
+                        r={11}
+                        fill="#facc15"
+                        stroke="white"
+                        strokeWidth={2}
+                        opacity={Math.abs(anchor.time - currentTime) < 0.04 ? 1 : 0.82}
+                      />
+                      <text
+                        x={anchor.x * videoBounds.width}
+                        y={anchor.y * videoBounds.height + 3.5}
+                        fill="#111827"
+                        fontSize={10}
+                        fontWeight={800}
+                        textAnchor="middle"
+                      >
+                        {index + 1}
+                      </text>
+                    </g>
+                  ))}
+                </g>
+              )}
             </svg>
           </div>
 
@@ -791,7 +1149,12 @@ export function SwingAnalysisEditor({
             <button type="button" onClick={() => seekTo(currentTime - 1 / 30)} className="flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white" aria-label="Ein Bild zurück">
               <EditorIcon name="back" className="h-4 w-4" />
             </button>
-            <button type="button" onClick={togglePlayback} className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black hover:bg-white/85" aria-label={isPlaying ? "Pause" : "Abspielen"}>
+            <button
+              type="button"
+              onClick={togglePlayback}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black hover:bg-white/85"
+              aria-label={isPlaying ? "Pause" : "Abspielen"}
+            >
               <EditorIcon name={isPlaying ? "pause" : "play"} className="h-5 w-5" />
             </button>
             <button type="button" onClick={() => seekTo(currentTime + 1 / 30)} className="flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white" aria-label="Ein Bild vor">
@@ -805,7 +1168,63 @@ export function SwingAnalysisEditor({
 
         <aside className="border-l border-white/10 bg-white/[0.025] p-4">
           <h2 className="text-sm font-semibold text-white">Eigenschaften</h2>
-          {selectedLayer ? (
+          {selectedPath ? (
+            <div className="mt-5 flex flex-col gap-5">
+              <div>
+                <p className="text-xs text-white/40">Ebene</p>
+                <p className="mt-1 text-sm font-medium text-white">Schlägerkopf-Pfad</p>
+              </div>
+              <div className="space-y-2 text-xs text-white/60">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2"><span className="h-1 w-5 rounded bg-yellow-400" />Rückschwung</span>
+                  <span>{formatTime(selectedPath.startTime)}–{formatTime(selectedPath.transitionTime)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2"><span className="h-1 w-5 rounded bg-rose-500" />Abschwung</span>
+                  <span>{formatTime(selectedPath.transitionTime)}–{formatTime(selectedPath.endTime)}</span>
+                </div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                <p className="text-xs font-medium text-white">Übergang korrigieren</p>
+                <p className="mt-1 text-xs leading-5 text-white/45">
+                  Fahre zum höchsten Punkt des Rückschwungs und übernimm das aktuelle Bild.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => updatePath(selectedPath.id, {
+                    transitionTime: clamp(currentTime, selectedPath.startTime, selectedPath.endTime),
+                  })}
+                  className="mt-3 w-full rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-white hover:bg-white/10"
+                >
+                  Aktuelles Bild übernehmen
+                </button>
+              </div>
+              {selectedPath.interpolatedSegments.length > 0 && (
+                <p className="rounded-md border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                  {selectedPath.interpolatedSegments.length}{" "}
+                  {selectedPath.interpolatedSegments.length === 1 ? "Abschnitt wurde" : "Abschnitte wurden"}{" "}
+                  direkt zwischen deinen Schlüsselbildern interpoliert, weil dort keine stabilen Bildmerkmale erkennbar waren.
+                </p>
+              )}
+              <p className="text-xs leading-5 text-white/40">
+                {selectedPath.anchors.length > 0 && `${selectedPath.anchors.length} Schlüsselbilder · `}
+                {selectedPath.points.length} Kurvenpunkte
+              </p>
+              {selectedPath.anchors.length >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => reusePathAnchors(selectedPath)}
+                  className="rounded-md border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-sm font-medium text-sky-100 hover:bg-sky-400/15"
+                >
+                  Schlüsselbilder bearbeiten
+                </button>
+              )}
+              <button type="button" onClick={deleteSelectedPath} className="inline-flex items-center justify-center gap-2 rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200 hover:bg-red-400/15">
+                <EditorIcon name="trash" className="h-4 w-4" />
+                Pfad löschen
+              </button>
+            </div>
+          ) : selectedLayer ? (
             <div className="mt-5 flex flex-col gap-5">
               <div>
                 <p className="text-xs text-white/40">Ebene</p>
@@ -862,8 +1281,77 @@ export function SwingAnalysisEditor({
               </button>
             </div>
           ) : (
-            <div className="mt-5 rounded-lg border border-dashed border-white/10 p-4 text-sm leading-6 text-white/45">
-              Wähle links ein Werkzeug und zeichne direkt auf das Video. Eine neue Ebene erscheint automatisch in der Timeline.
+            <div className="mt-5 flex flex-col gap-3">
+              <div className={cn(
+                "rounded-lg border border-dashed p-4 text-sm leading-6",
+                selectedTool === "track"
+                  ? "border-yellow-400/35 bg-yellow-400/[0.06] text-yellow-50/75"
+                  : selectedTool === "angle"
+                    ? "border-sky-400/35 bg-sky-400/[0.06] text-sky-50/75"
+                    : "border-white/10 text-white/45"
+              )}>
+                {selectedTool === "track"
+                  ? "Pausiere an mehreren Stellen und klicke jeweils mittig auf den Schlägerkopf. Aus diesen exakten Positionen entsteht eine glatte, statische Schwungspur."
+                  : selectedTool === "angle"
+                    ? `Setze zuerst den Winkelpunkt und danach die beiden Endpunkte der Schenkel. ${angleDraft?.points.length ?? 0}/3 Punkte gesetzt.`
+                  : "Wähle links ein Werkzeug und zeichne direkt auf das Video. Eine neue Ebene erscheint automatisch in der Timeline."}
+              </div>
+              {selectedTool === "track" && trackingAnchors.length > 0 && (
+                <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium text-white">
+                      {trackingAnchors.length} {trackingAnchors.length === 1 ? "Schlüsselbild" : "Schlüsselbilder"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTrackingAnchors([]);
+                        setReplacingPathId(null);
+                      }}
+                      className="text-xs text-white/40 hover:text-white disabled:opacity-35"
+                    >
+                      Alle löschen
+                    </button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {trackingAnchors.map((anchor, index) => (
+                      <button
+                        key={`${anchor.time}-${index}`}
+                        type="button"
+                        onClick={() => seekTo(anchor.time)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-yellow-400/25 bg-yellow-400/10 py-1 pl-1 pr-2 text-xs text-yellow-100 hover:bg-yellow-400/15 disabled:opacity-35"
+                      >
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-yellow-400 font-bold text-black">
+                          {index + 1}
+                        </span>
+                        {formatTime(anchor.time)}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTrackingAnchors((current) => current.slice(0, -1))}
+                    className="mt-3 text-xs text-white/45 hover:text-white disabled:opacity-35"
+                  >
+                    Letztes Schlüsselbild entfernen
+                  </button>
+                </div>
+              )}
+              {selectedTool === "track" && (
+                <button
+                  type="button"
+                  onClick={createPathFromAnchors}
+                  disabled={trackingAnchors.length < 2}
+                  className="rounded-md bg-yellow-400 px-3 py-2.5 text-sm font-semibold text-black hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  Schwungspur aus {trackingAnchors.length} Schlüsselbildern erstellen
+                </button>
+              )}
+              {trackingError && (
+                <p role="alert" className="rounded-md border border-red-400/20 bg-red-400/10 px-3 py-2 text-xs leading-5 text-red-200">
+                  {trackingError}
+                </p>
+              )}
             </div>
           )}
         </aside>
@@ -926,6 +1414,36 @@ export function SwingAnalysisEditor({
                     selected={selectedLayerId === layer.id}
                     onSelect={() => selectLayer(layer)}
                     onChange={(startTime, endTime) => updateLayer(layer.id, { startTime, endTime })}
+                  />
+                </div>
+              ))}
+
+              {clubPaths.map((path, index) => (
+                <div key={`${path.id}-label`} className="contents">
+                  <button
+                    type="button"
+                    onClick={() => selectPath(path)}
+                    className={cn(
+                      "flex h-10 min-w-0 items-center gap-2 rounded px-1 text-left text-xs",
+                      selectedPathId === path.id ? "text-white" : "text-white/55 hover:text-white"
+                    )}
+                  >
+                    <span className="flex shrink-0 gap-0.5">
+                      <span className="h-2 w-2 rounded-l-full bg-yellow-400" />
+                      <span className="h-2 w-2 rounded-r-full bg-rose-500" />
+                    </span>
+                    <span className="truncate">Schlägerkopf {index + 1}</span>
+                  </button>
+                  <RangeTrack
+                    start={path.startTime}
+                    end={path.endTime}
+                    duration={duration}
+                    currentTime={currentTime}
+                    color="linear-gradient(90deg, #facc15, #f43f5e)"
+                    selected={selectedPathId === path.id}
+                    readOnly
+                    onSelect={() => selectPath(path)}
+                    onChange={() => undefined}
                   />
                 </div>
               ))}
