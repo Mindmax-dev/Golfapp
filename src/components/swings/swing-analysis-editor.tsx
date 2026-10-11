@@ -1000,8 +1000,9 @@ export function SwingAnalysisEditor({
         Der Editor ist für einen großen Bildschirm optimiert. Auf kleineren Ansichten kann horizontal gescrollt werden.
       </p>
 
-      <div className="grid min-w-[920px] grid-cols-[78px_minmax(480px,1fr)_250px]">
-        <aside className="flex flex-col items-center gap-2 border-r border-white/10 bg-white/[0.025] py-4">
+      <div className="grid h-[72vh] min-h-[620px] max-h-[900px] min-w-[920px] grid-cols-[78px_minmax(480px,1fr)_250px]">
+        <aside className="min-h-0 overflow-y-auto border-r border-white/10 bg-white/[0.025] py-4">
+          <div className="flex min-h-full flex-col items-center gap-2">
           {(Object.keys(TOOL_LABELS) as EditorTool[]).map((tool) => (
             <button
               key={tool}
@@ -1047,13 +1048,14 @@ export function SwingAnalysisEditor({
               style={{ backgroundColor: color }}
             />
           ))}
+          </div>
         </aside>
 
-        <main className="flex min-h-[540px] flex-col items-center justify-center gap-3 bg-[radial-gradient(circle_at_center,rgba(255,255,255,.06),transparent_62%)] p-5">
+        <main className="flex min-h-0 flex-col items-center justify-center gap-3 overflow-hidden bg-[radial-gradient(circle_at_center,rgba(255,255,255,.06),transparent_62%)] p-5">
           <div
             ref={stageRef}
-            className="relative max-h-[52vh] w-auto max-w-full overflow-hidden rounded-lg bg-black shadow-[0_18px_55px_rgba(0,0,0,.55)]"
-            style={{ aspectRatio: videoAspect, height: "52vh" }}
+            className="relative max-h-full w-auto max-w-full overflow-hidden rounded-lg bg-black shadow-[0_18px_55px_rgba(0,0,0,.55)]"
+            style={{ aspectRatio: videoAspect, height: "calc(100% - 4rem)" }}
           >
             <video
               ref={videoRef}
@@ -1192,7 +1194,7 @@ export function SwingAnalysisEditor({
           </div>
         </main>
 
-        <aside className="border-l border-white/10 bg-white/[0.025] p-4">
+        <aside className="min-h-0 overflow-y-auto border-l border-white/10 bg-white/[0.025] p-4">
           <h2 className="text-sm font-semibold text-white">Eigenschaften</h2>
           {selectedPath ? (
             <div className="mt-5 flex flex-col gap-5">
