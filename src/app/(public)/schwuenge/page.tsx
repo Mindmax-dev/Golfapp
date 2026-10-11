@@ -8,6 +8,14 @@ import { parseSwingAnalysis } from "@/lib/swing-analysis";
 
 export const metadata: Metadata = { title: "Schwünge" };
 
+function parsePublicSwingAnalysis(value: unknown) {
+  const analysis = parseSwingAnalysis(value);
+  if (!analysis) return null;
+  const publicAnalysis = { ...analysis };
+  delete publicAnalysis.improvementIdeas;
+  return publicAnalysis;
+}
+
 export default async function SwingsPage() {
   const supabase = await createClient();
   const videos = await getSwingVideos();
@@ -20,7 +28,7 @@ export default async function SwingsPage() {
     recordedAt: formatDatum(video.recordedAt),
     originalName: video.originalName,
     canEdit: false,
-    analysis: parseSwingAnalysis(video.analysisData),
+    analysis: parsePublicSwingAnalysis(video.analysisData),
   }));
 
   return (

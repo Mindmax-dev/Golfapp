@@ -41,6 +41,8 @@ export type SwingAnalysis = {
   duration: number;
   trimStart: number;
   trimEnd: number;
+  thumbnailTime?: number;
+  improvementIdeas?: string;
   layers: SwingDrawingLayer[];
   clubPaths: SwingClubPath[];
 };
@@ -132,12 +134,24 @@ export const SwingAnalysisSchema = z
     duration: z.number().finite().positive().max(21_600),
     trimStart: z.number().finite().min(0).max(21_600),
     trimEnd: z.number().finite().positive().max(21_600),
+    thumbnailTime: z.number().finite().min(0).max(21_600).optional(),
+    improvementIdeas: z.string().max(4_000).optional(),
     layers: z.array(DrawingLayerSchema).max(100),
     clubPaths: z.array(ClubPathSchema).max(10).default([]),
   })
   .superRefine((analysis, context) => {
     if (analysis.trimStart >= analysis.trimEnd || analysis.trimEnd > analysis.duration) {
       context.addIssue({ code: "custom", message: "Der Videoschnitt ist ungültig." });
+    }
+    if (
+      analysis.thumbnailTime !== undefined &&
+      (analysis.thumbnailTime < analysis.trimStart || analysis.thumbnailTime > analysis.trimEnd)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["thumbnailTime"],
+        message: "Das Thumbnail muss innerhalb des Videoschnitts liegen.",
+      });
     }
 
     analysis.layers.forEach((layer, index) => {

@@ -395,10 +395,23 @@ export function SwingGallery({ videos, manageUserId }: SwingGalleryProps) {
               className="group relative block aspect-[9/16] w-full overflow-hidden rounded-xl bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]"
             >
               <video
-                src={`${video.url}#t=${Math.max(video.analysis?.trimStart ?? 0.001, 0.001)}`}
+                src={`${video.url}#t=${Math.max(
+                  video.analysis?.thumbnailTime ?? video.analysis?.trimStart ?? 0.001,
+                  0.001
+                )}`}
                 preload="metadata"
                 muted
                 playsInline
+                onLoadedMetadata={(event) => {
+                  const requestedTime = Math.max(
+                    video.analysis?.thumbnailTime ?? video.analysis?.trimStart ?? 0.001,
+                    0.001
+                  );
+                  event.currentTarget.currentTime = Math.min(
+                    requestedTime,
+                    Math.max(event.currentTarget.duration - 0.05, 0)
+                  );
+                }}
                 className="h-full w-full object-cover opacity-90 transition-opacity group-hover:opacity-75"
               />
               <span className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/10" />
@@ -429,6 +442,11 @@ export function SwingGallery({ videos, manageUserId }: SwingGalleryProps) {
                 </div>
               )}
             </div>
+            {video.canEdit && video.analysis?.improvementIdeas?.trim() && (
+              <p className="mt-2 line-clamp-3 rounded-md border border-[var(--color-card-border)] bg-[var(--color-card)] px-2.5 py-2 text-xs leading-5 text-[var(--color-muted-foreground)]">
+                {video.analysis.improvementIdeas}
+              </p>
+            )}
           </article>
         ))}
       </div>

@@ -400,6 +400,12 @@ export function SwingAnalysisEditor({
   const [trimStart, setTrimStart] = useState(initialAnalysis?.trimStart ?? 0);
   const [trimEnd, setTrimEnd] = useState(initialAnalysis?.trimEnd ?? 0);
   const [currentTime, setCurrentTime] = useState(initialAnalysis?.trimStart ?? 0);
+  const [thumbnailTime, setThumbnailTime] = useState(
+    initialAnalysis?.thumbnailTime ?? initialAnalysis?.trimStart ?? 0
+  );
+  const [improvementIdeas, setImprovementIdeas] = useState(
+    initialAnalysis?.improvementIdeas ?? ""
+  );
   const [layers, setLayers] = useState<SwingDrawingLayer[]>(initialAnalysis?.layers ?? []);
   const [clubPaths, setClubPaths] = useState<SwingClubPath[]>(initialAnalysis?.clubPaths ?? []);
   const [selectedTool, setSelectedTool] = useState<EditorTool>("select");
@@ -496,6 +502,11 @@ export function SwingAnalysisEditor({
     setDuration(nextDuration);
     setTrimStart(nextStart);
     setTrimEnd(nextEnd);
+    setThumbnailTime(clamp(
+      initialAnalysis?.thumbnailTime ?? nextStart,
+      nextStart,
+      nextEnd
+    ));
     setCurrentTime(nextStart);
     video.currentTime = nextStart;
     if (video.videoWidth > 0 && video.videoHeight > 0) {
@@ -554,8 +565,21 @@ export function SwingAnalysisEditor({
   function updateTrim(start: number, end: number) {
     setTrimStart(start);
     setTrimEnd(end);
+    setThumbnailTime((current) => clamp(current, start, end));
     if (currentTime < start) seekTo(start);
     if (currentTime > end) seekTo(end);
+    markChanged();
+  }
+
+  function useCurrentFrameAsThumbnail() {
+    const nextThumbnailTime = clamp(currentTime, trimStart, trimEnd);
+    videoRef.current?.pause();
+    setThumbnailTime(nextThumbnailTime);
+    markChanged();
+  }
+
+  function updateImprovementIdeas(value: string) {
+    setImprovementIdeas(value.slice(0, 4_000));
     markChanged();
   }
 
@@ -927,6 +951,8 @@ export function SwingAnalysisEditor({
       duration,
       trimStart,
       trimEnd,
+      thumbnailTime,
+      improvementIdeas,
       layers,
       clubPaths,
     };
@@ -1354,6 +1380,50 @@ export function SwingAnalysisEditor({
               )}
             </div>
           )}
+
+          <div className="mt-6 border-t border-white/10 pt-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-white">Thumbnail</p>
+                <p className="mt-1 text-xs text-white/40">Bild bei {formatTime(thumbnailTime)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => seekTo(thumbnailTime)}
+                className="text-xs font-medium text-white/50 hover:text-white"
+              >
+                Anzeigen
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={useCurrentFrameAsThumbnail}
+              className="mt-3 w-full rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-white hover:bg-white/10"
+            >
+              Aktuelles Bild als Thumbnail
+            </button>
+          </div>
+
+          <div className="mt-5 border-t border-white/10 pt-5">
+            <label htmlFor="improvement-ideas" className="text-sm font-semibold text-white">
+              Verbesserungsideen
+            </label>
+            <p className="mt-1 text-xs leading-5 text-white/40">
+              Interne Notizen – nur im Admin-Bereich sichtbar.
+            </p>
+            <textarea
+              id="improvement-ideas"
+              value={improvementIdeas}
+              maxLength={4_000}
+              rows={6}
+              placeholder="Was soll beim nächsten Schwung verbessert werden?"
+              onChange={(event) => updateImprovementIdeas(event.target.value)}
+              className="mt-3 w-full resize-y rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm leading-5 text-white outline-none placeholder:text-white/25 focus:border-[var(--color-primary)]"
+            />
+            <p className="mt-1 text-right text-[10px] tabular-nums text-white/30">
+              {improvementIdeas.length}/4000
+            </p>
+          </div>
         </aside>
       </div>
 
