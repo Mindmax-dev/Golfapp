@@ -63,6 +63,91 @@ function extensionFor(file: File) {
   return "mp4";
 }
 
+function SwingVideoThumbnail({ video }: { video: SwingVideoItem }) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  const [videoAspect, setVideoAspect] = useState(9 / 16);
+  const thumbnailTime = Math.max(
+    video.analysis?.thumbnailTime ?? video.analysis?.trimStart ?? 0.001,
+    0.001
+  );
+  const visibleLayers = video.analysis?.layers.filter(
+    (layer) => thumbnailTime >= layer.startTime && thumbnailTime <= layer.endTime
+  ) ?? [];
+  const visiblePaths = video.analysis?.clubPaths.filter(
+    (path) => thumbnailTime >= path.startTime && thumbnailTime <= path.endTime
+  ) ?? [];
+  const videoBounds = getContainedVideoBounds(
+    stageSize.width,
+    stageSize.height,
+    videoAspect
+  );
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setStageSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={stageRef} className="absolute inset-0">
+      <video
+        src={`${video.url}#t=${thumbnailTime}`}
+        preload="metadata"
+        muted
+        playsInline
+        onLoadedMetadata={(event) => {
+          event.currentTarget.currentTime = Math.min(
+            thumbnailTime,
+            Math.max(event.currentTarget.duration - 0.05, 0)
+          );
+          if (event.currentTarget.videoWidth > 0 && event.currentTarget.videoHeight > 0) {
+            setVideoAspect(
+              event.currentTarget.videoWidth / event.currentTarget.videoHeight
+            );
+          }
+        }}
+        className="h-full w-full object-contain opacity-90 transition-opacity group-hover:opacity-75"
+      />
+      {(visibleLayers.length > 0 || visiblePaths.length > 0) && videoBounds.width > 0 && (
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute opacity-90 transition-opacity group-hover:opacity-75"
+          style={{
+            left: videoBounds.left,
+            top: videoBounds.top,
+            width: videoBounds.width,
+            height: videoBounds.height,
+          }}
+          viewBox={`0 0 ${videoBounds.width} ${videoBounds.height}`}
+          preserveAspectRatio="none"
+        >
+          {visibleLayers.map((layer) => (
+            <SwingDrawingShape
+              key={layer.id}
+              layer={layer}
+              width={videoBounds.width}
+              height={videoBounds.height}
+            />
+          ))}
+          {visiblePaths.map((path) => (
+            <SwingClubPathShape
+              key={path.id}
+              path={path}
+              width={videoBounds.width}
+              height={videoBounds.height}
+            />
+          ))}
+        </svg>
+      )}
+    </div>
+  );
+}
+
 function AnalyzedVideoPlayer({ video }: { video: SwingVideoItem }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -394,26 +479,7 @@ export function SwingGallery({ videos, manageUserId }: SwingGalleryProps) {
               aria-label={`Schwung vom ${video.recordedAt} abspielen`}
               className="group relative block aspect-[9/16] w-full overflow-hidden rounded-xl bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]"
             >
-              <video
-                src={`${video.url}#t=${Math.max(
-                  video.analysis?.thumbnailTime ?? video.analysis?.trimStart ?? 0.001,
-                  0.001
-                )}`}
-                preload="metadata"
-                muted
-                playsInline
-                onLoadedMetadata={(event) => {
-                  const requestedTime = Math.max(
-                    video.analysis?.thumbnailTime ?? video.analysis?.trimStart ?? 0.001,
-                    0.001
-                  );
-                  event.currentTarget.currentTime = Math.min(
-                    requestedTime,
-                    Math.max(event.currentTarget.duration - 0.05, 0)
-                  );
-                }}
-                className="h-full w-full object-cover opacity-90 transition-opacity group-hover:opacity-75"
-              />
+              <SwingVideoThumbnail video={video} />
               <span className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/10" />
               <span className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white backdrop-blur-sm transition-transform group-hover:scale-105">
                 <Icon name="play" className="ml-0.5 h-6 w-6" />
